@@ -25,6 +25,7 @@ class Swiper(db.Model):
     # selection algorithm.
     price = db.FloatProperty()
 
+# Temporary handler to display and add users (testing the user model, Swiper)
 class MainPage(webapp2.RequestHandler):
     def get(self):
         # Start with a content type message
@@ -44,6 +45,7 @@ class MainPage(webapp2.RequestHandler):
 
         user = users.get_current_user()
 
+        # If the user is logged in, display a welcome message and a form to add new users (associated with their email address)
         if user:
             self.response.out.write('Hello, ' + user.nickname() + '!<hr>')
             self.response.out.write('<form action="/adduser" method="POST">')
@@ -54,9 +56,12 @@ class MainPage(webapp2.RequestHandler):
             self.response.out.write('Price: <input type="float" name="price"><br>')
             self.response.out.write('Submit: <input type="submit">')
 
+        # Otherwise, link them to the login page.
         else:
             self.response.out.write('<a href="' + users.create_login_url(self.request.uri) + '">Login</a>')
 
+
+# Handles POST requests to add a new user.  Also temporary, for testing the Swiper model
 class AddUser(webapp2.RequestHandler):
     def post(self):
         new_swiper = Swiper()
