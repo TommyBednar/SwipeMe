@@ -1,7 +1,14 @@
+import os
 import webapp2
+import jinja2
 
 from google.appengine.ext import db
 from google.appengine.api import users
+
+JINJA_ENVIRONMENT = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
+    extensions=['jinja2.ext.autoescape'],
+    autoescape=True)
 
 class Swiper(db.Model):
     # Authentication for logging in via Google Accounts API
@@ -25,8 +32,20 @@ class Swiper(db.Model):
     # selection algorithm.
     price = db.FloatProperty()
 
+class LandingPage(webapp2.RequestHandler):
+    def get(self):
+        
+        user = users.get_current_user()
+        if user:
+            self.redirect('/register')
+
+        else:
+            #Render the page
+            template = JINJA_ENVIRONMENT.get_template("index.html")
+            self.response.write(template.render())
+
 # Temporary handler to display and add users (testing the user model, Swiper)
-class MainPage(webapp2.RequestHandler):
+class Register(webapp2.RequestHandler):
     def get(self):
         # Start with a content type message
         self.response.headers['Content-Type'] = 'text/html'
@@ -75,11 +94,12 @@ class AddUser(webapp2.RequestHandler):
         new_swiper.price = float(self.request.get('price'))
 
         new_swiper.put()
-        self.redirect('/')
+        self.redirect('/register')
 
 app = webapp2.WSGIApplication([
-    ('/', MainPage),
-    ('/adduser', AddUser)
+    ('/', LandingPage),
+    ('/adduser', AddUser),
+    ('/register', Register)
 ], debug=True)
 
 def main():
