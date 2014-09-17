@@ -3,7 +3,7 @@ import webapp2
 from google.appengine.ext import db
 from google.appengine.api import users
 
-class Swiper(db.Model):
+class Member(db.Model):
     # Authentication for logging in via Google Accounts API
     owner = db.UserProperty()
 
@@ -25,14 +25,22 @@ class Swiper(db.Model):
     # selection algorithm.
     price = db.FloatProperty()
 
+    @staticmethod
+    def swipers():
+        # Return all users that are swipers (offering is false)
+
+    @staticmethod
+    def swipees():
+        # Return all users that are swipees (offering is true)
+
 # Temporary handler to display and add users (testing the user model, Swiper)
 class MainPage(webapp2.RequestHandler):
     def get(self):
         # Start with a content type message
         self.response.headers['Content-Type'] = 'text/html'
 
-        # Get all Swipers in the datastore
-        swipers = Swiper.all()
+        # Get all Member in the datastore
+        swipers = Member.all()
         
         # Loop through all and output some rudimentary data for them
         for swiper in swipers:
@@ -61,10 +69,10 @@ class MainPage(webapp2.RequestHandler):
             self.response.out.write('<a href="' + users.create_login_url(self.request.uri) + '">Login</a>')
 
 
-# Handles POST requests to add a new user.  Also temporary, for testing the Swiper model
+# Handles POST requests to add a new user.  Also temporary, for testing the Member model
 class AddUser(webapp2.RequestHandler):
     def post(self):
-        new_swiper = Swiper()
+        new_swiper = Member()
 
         if users.get_current_user():
             new_swiper.owner = users.get_current_user()
