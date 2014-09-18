@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+
+{% block head_config %}
+	{{ super() }}
+	<link href="css/index.css" rel="stylesheet" type="text/css">
+	}
+{% endblock head_config %}
+
 {% block container %}
 	<div id="header">
 		<div class="row">
@@ -10,7 +17,7 @@
 					<h2>Get Swiped In</h2>
 					<p class="lead">Text <em>Swipe Me</em> when you want to eat at Market or The Perch.
 					Someone will come to swipe you in.</p>
-					<a href="/register" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
+					<a href="/register?user_type=swipee" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
 				</div>
 			</div> 
 			<div class="col-md-6">
@@ -18,7 +25,7 @@
 					<h2>Sell Your Swipes</h2>
 					<p class="lead">Name a price and text <em>Swipe Me</em> when you're in Market or The Perch. 
 					We'll text you when someone wants swiped in.</p>
-					<a href="/register" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
+					<a href="/register?user_type=swiper" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
 				</div>
 			</div>
 		</div>

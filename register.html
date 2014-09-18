@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block head_config %}
+    {{ super() }}
+    <link href="css/register.css" rel="stylesheet">
+{% endblock head_config %}
+
+{% block container %}
+  <form role="form" id="{{user_type}}_register_form">
+    <div class="form-group">
+      <label for="phone_number">Cell Phone Number</label>
+      <input type="tel" class="form-control" id="user_phone" placeholder="Can I get your digits?">
+      <p class="help-block">
+        {% if user_type == "swiper" %}
+        You'll text us when you're available to swipe. We'll text you when someone is ready to be swiped in.
+        {% elif user_type == "swipee" %}
+        You'll text us when you're ready to be swiped in.
+        {% endif %}
+      </p>
+    </div>
+    {% if user_type == "swiper" %}
+      <div class="form-group">
+        <label for="asking_price">Asking Price</label>
+        <input type="number" class="form-control" id="asking_price" placeholder="Whole dollars only, please.">
+        <p class="help-block">By default, this is how much you'll be paid to swipe someone in.</p>
+      </div>
+      <div class="form-group">
+        <label for="set_min">Do you want to set a minimum price?</label>
+        <input type="checkbox" class="form-control" id="set_min">
+        <p class="help-block">If someone sets a lower asking price than you do, they'll get all of the swipe requests. You can set a minimum price to stay in the market if someone undercuts you. Your price will match other sellers' asking prices as long as they aren't lower than your minimum price.</p>
+      </div>
+      <div class="form-group" id="min_price_form">
+        <label for="min_price">Minimum price</label>
+        <input type="number" class="form-control" id="min_price" placeholder="Whole dollars only, please.">
+        <p class="help-block">Example block-level help text here.</p>
+      </div>
+    {% endif %}
+    <button type="submit" onclick="processForm" class="btn btn-default">Submit</button>
+  </form>
+{% endblock container %}

@@ -45,52 +45,21 @@ class Member(db.Model):
 class LandingPage(webapp2.RequestHandler):
     def get(self):
         
-        user = users.get_current_user()
-        if user:
-            self.redirect('/register')
 
-        else:
-            #Render the page
-            template = JINJA_ENVIRONMENT.get_template("index.html")
-            self.response.write(template.render())
+        #Render the page
+        template = JINJA_ENVIRONMENT.get_template("index.html")
+        self.response.write(template.render())
 
 
 # Temporary handler to display and add users (testing the user model, Swiper)
 class Register(webapp2.RequestHandler):
     def get(self):
-        # Start with a content type message
-        self.response.headers['Content-Type'] = 'text/html'
 
-        # Get all Member in the datastore
-        swipers = Member.all()
+        user_type = self.request.get('user_type')
+
+        template = JINJA_ENVIRONMENT.get_template("register.html")
+        self.response.write(template.render( { 'user_type': user_type} ))
         
-        # Loop through all and output some rudimentary data for them
-        for swiper in swipers:
-            self.response.out.write('<p>User: ' + swiper.owner.nickname() + '<br>')
-            self.response.out.write('\t-phone: ' + str(swiper.phone) + '<br>')
-            self.response.out.write('\t-swiper: ' + str(swiper.offering) + '<br>')
-            self.response.out.write('\t-active: ' + str(swiper.active) + '<br>')
-            self.response.out.write('\t-price: %.2f<br>' % swiper.price)
-            self.response.out.write('</p>')
-
-        user = users.get_current_user()
-
-        # If the user is logged in, display a welcome message and a form to add new users (associated with their email address)
-        if user:
-            self.response.out.write('Hello, ' + user.nickname() + '!<hr>')
-            self.response.out.write('<form action="/adduser" method="POST">')
-            self.response.out.write('User: ' + user.nickname() + '<br>')
-            self.response.out.write('Swiper: <input type="checkbox" name="offering"><br>')
-            self.response.out.write('Active: <input type="checkbox" name="active"><br>')
-            self.response.out.write('Phone: <input type="text" name="phone"><br>')
-            self.response.out.write('Price: <input type="float" name="price"><br>')
-            self.response.out.write('Submit: <input type="submit">')
-
-        # Otherwise, link them to the login page.
-        else:
-            self.response.out.write('<a href="' + users.create_login_url(self.request.uri) + '">Login</a>')
-
-
 # Handles POST requests to add a new user.  Also temporary, for testing the Member model
 class AddUser(webapp2.RequestHandler):
     def post(self):
