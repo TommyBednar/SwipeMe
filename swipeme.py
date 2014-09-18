@@ -34,12 +34,14 @@ class Member(db.Model):
 
     @staticmethod
     def swipers():
+        return 0
         # Return all users that are swipers (offering is false)
 
     @staticmethod
     def swipees():
+        return 0
         # Return all users that are swipees (offering is true)
-        
+
 class LandingPage(webapp2.RequestHandler):
     def get(self):
         
