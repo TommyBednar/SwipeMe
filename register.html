@@ -35,6 +35,10 @@
         <p class="help-block">Example block-level help text here.</p>
       </div>
     {% endif %}
-    <button type="submit" onclick="processForm" class="btn btn-default">Submit</button>
+    <button type="submit" onclick="processForm()" class="btn btn-default">Submit</button>
   </form>
 {% endblock container %}
+
+{% block javascript %}
+<script src="js/register.js"></script>
+{% endblock javascript %}
