@@ -3,42 +3,90 @@
 {% block head_config %}
     {{ super() }}
     <link href="css/register.css" rel="stylesheet">
+    <link href="css/bootstrapValidator.min.css" rel="stylesheet">
 {% endblock head_config %}
 
 {% block container %}
-  <form role="form" id="{{user_type}}_register_form">
+  <!-- Specify symbols to display for validation.-->
+  <form role="form" id="register_form"  
+  data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
+  data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
+  data-bv-feedbackicons-validating="glyphicon glyphicon-refresh">
     <div class="form-group">
-      <label for="phone_number">Cell Phone Number</label>
-      <input type="tel" class="form-control" id="user_phone" placeholder="Can I get your digits?">
+      <label for="user_phone">Cell Phone Number </label>
+      <input type="tel" id="user_phone" name="phone" 
+      placeholder="412-555-5555"
+      data-bv-phone
+      data-bv-phone-country="US"
+      data-bv-phone-message="Please enter a valid phone number."
+      data-bv-notempty="true"
+      data-bv-notempty-message="Please enter a valid phone number.">
       <p class="help-block">
         {% if user_type == "swiper" %}
-        You'll text us when you're available to swipe. We'll text you when someone is ready to be swiped in.
+          You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall. 
+          You'll get a text when you're matched with a buyer.
         {% elif user_type == "swipee" %}
-        You'll text us when you're ready to be swiped in.
+          You'll send <em>SwipeMe</em> a text when you want to be swiped in to a dining hall.
         {% endif %}
       </p>
     </div>
     {% if user_type == "swiper" %}
       <div class="form-group">
         <label for="asking_price">Asking Price</label>
-        <input type="number" class="form-control" id="asking_price" placeholder="Whole dollars only, please.">
-        <p class="help-block">By default, this is how much you'll be paid to swipe someone in.</p>
-      </div>
-      <div class="checkbox" id="set_min">
-        <label>
-          <input type="checkbox"> Set a minimum price
-        </label>
-        <p class="help-block">If someone sets a lower asking price than you do, they'll get all of the swipe requests. You can set a minimum price to stay in the market if someone undercuts you. Your price will match other sellers' asking prices as long as they aren't lower than your minimum price.</p>
-      </div>
-      <div class="form-group" id="min_price_form">
-        <label for="min_price">Minimum price</label>
-        <input type="number" class="form-control" id="min_price" placeholder="Whole dollars only, please.">
+        $<input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
+        data-bv-integer-message="Please enter a whole dollar value."
+        data-bv-lessthan-inclusive="false"
+        data-bv-lessthan-value="10"
+        data-bv-lessthan-message="Please enter a number between 1 and 9."
+        data-bv-greaterthan-inclusive="false"
+        data-bv-greaterthan-value="0"
+        data-bv-greaterthan-message="Please enter a number between 1 and 9."
+        data-bv-notempty="true" 
+        data-bv-notempty-message="Please enter a number between 1 and 9.">
+        <p class="help-block">This is how much you'll be paid to swipe someone in.</p>
       </div>
     {% endif %}
-    <button type="submit" onclick="processForm()" class="btn btn-default">Submit</button>
   </form>
+  <button type="button" id="submit_form" onclick="process_form(this,event)" class="btn btn-default" disabled="disabled">Submit</button>
 {% endblock container %}
 
 {% block javascript %}
 <script src="js/register.js"></script>
+<script src="js/bootstrapValidator.min.js"></script>
+<script>
+  $(document).ready(function() {
+    $('#register_form').bootstrapValidator();
+  });
+
+  $(document).ready(function(){
+    $('$register_form').on('success.form.bv', function(event){
+        
+    });
+  });
+  function process_form(this,event){
+    var button = $('#submit_button');
+    if ($('#register_form').is(':disabled'))
+    {
+      console.log("Can't submit invalid form");
+    }
+    else
+    {
+      form_data = {"user_type": "{{user_type}}"};
+      
+      //Store phone number as string of 10 digits
+      var phone_number = $(#user_phone).val();
+      phone_number = phone_number.replace(/\D/g,'');
+      form_data.phone_number = phone_number;
+      
+      //If price form entry exists, store it
+      var price_element = $(#asking_price);
+      if (price_element)
+      {
+        form_data.price = price.val();
+      }
+
+    }
+  }
+
+</script>
 {% endblock javascript %}
