@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 
 {% block head_config %}
-    {{ super() }}
-    <link href="css/register.css" rel="stylesheet">
-    <link href="css/bootstrapValidator.min.css" rel="stylesheet">
+    <link href="../css/main.css" rel="stylesheet">
+    <link href="../css/register.css" rel="stylesheet">
+    <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/bootstrap-theme.min.css" rel="stylesheet">
 {% endblock head_config %}
 
 {% block container %}
   <!-- Specify symbols to display for validation.-->
-  <form role="form" id="register_form"  
+  <form role="form" action="javascript:process_form()" id="register_form"  
   data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
   data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
-  data-bv-feedbackicons-validating="glyphicon glyphicon-refresh">
+  data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
+  data-bv-onerror="on_form_invalid(this,event)"
+  data-bv-onsuccess="on_form_valid(this,event)">
     <div class="form-group">
       <label for="user_phone">Cell Phone Number </label>
       <input type="tel" id="user_phone" name="phone" 
@@ -46,47 +50,48 @@
         <p class="help-block">This is how much you'll be paid to swipe someone in.</p>
       </div>
     {% endif %}
+      <button type="submit" class="btn btn-primary">Submit</button>
   </form>
-  <button type="button" id="submit_form" onclick="process_form(this,event)" class="btn btn-default" disabled="disabled">Submit</button>
 {% endblock container %}
 
 {% block javascript %}
-<script src="js/register.js"></script>
-<script src="js/bootstrapValidator.min.js"></script>
-<script>
-  $(document).ready(function() {
-    $('#register_form').bootstrapValidator();
-  });
+  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <!-- Include all compiled plugins (below), or include individual files as needed -->
+  <script src="../js/bootstrap.min.js"></script>
+  <script src="../js/bootstrapValidator.min.js"></script>
+  <script>
 
-  $(document).ready(function(){
-    $('$register_form').on('success.form.bv', function(event){
-        
+    $(document).ready(function() {
+      $('#register_form').bootstrapValidator()
     });
-  });
-  function process_form(this,event){
-    var button = $('#submit_button');
-    if ($('#register_form').is(':disabled'))
-    {
-      console.log("Can't submit invalid form");
-    }
-    else
-    {
+
+    function process_form(t,event){
+
+      //Create object with user data to pass in post request
       form_data = {"user_type": "{{user_type}}"};
       
       //Store phone number as string of 10 digits
-      var phone_number = $(#user_phone).val();
+      var phone_number = $('#user_phone').val();
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
-      //If price form entry exists, store it
-      var price_element = $(#asking_price);
+      //If user specified price, store it
+      var price_element = $('#asking_price');
       if (price_element)
       {
-        form_data.price = price.val();
+        form_data.asking_price = price_element.val();
+      }
+      else
+      {
+        form_data.asking_price = '0';
       }
 
+      //Send new user to datastore. 
+      //Redirect to home screen
+      $.post("add_user",form_data, function(){
+        window.location = "home";
+      });
     }
-  }
-
-</script>
+  </script>
 {% endblock javascript %}

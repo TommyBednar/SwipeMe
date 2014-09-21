@@ -17,5 +17,8 @@ handlers:
   static_dir: js
 - url: /fonts
   static_dir: fonts
+- url: /user/.*
+  script: swipeme.app
+  login: required
 - url: /.*
   script: swipeme.app
