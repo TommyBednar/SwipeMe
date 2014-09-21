@@ -2,7 +2,7 @@ import os
 import webapp2
 import jinja2
 
-from google.appengine.ext import db
+from google.appengine.ext import ndb
 from google.appengine.api import users
 
 JINJA_ENVIRONMENT = jinja2.Environment(
@@ -10,36 +10,36 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
-class Member(db.Model):
+class Member(ndb.Model):
     # Authentication for logging in via Google Accounts API
-    owner = db.UserProperty()
+    owner = ndb.UserProperty()
 
     # True if user is offering swipes (Swipee), false if
     # user is looking for swipes (Swiper)
-    offering = db.BooleanProperty()
+    offering = ndb.BooleanProperty()
 
     # User's phone number for texting information
-    phone = db.PhoneNumberProperty()
+    phone = ndb.StringProperty()
 
     # True if user is currently active.  For the Swipee,
     # this means they are in market.  For the Swiper, it 
     # means they are waiting to be swiped in.
-    active = db.BooleanProperty()
+    active = ndb.BooleanProperty()
 
     # Prices the user is setting.  For the Swipee, this is
     # the price they are charging.  For the Swiper, this is
     # the maximum price they will pay.  Will be used in the
     # selection algorithm.
-    price = db.FloatProperty()
+    price = ndb.FloatProperty()
 
     @staticmethod
     def swipers():
-        return 0
+        return Member.query().filter(Member.offering == False)
         # Return all users that are swipers (offering is false)
 
     @staticmethod
     def swipees():
-        return 0
+        return Member.query().filter(Member.offering == True)
         # Return all users that are swipees (offering is true)
 
 class LandingPage(webapp2.RequestHandler):
@@ -62,7 +62,7 @@ class Register(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'text/html'
 
         # Get all Member in the datastore
-        swipers = Member.all()
+        swipers = Member.query()
         
         # Loop through all and output some rudimentary data for them
         for swiper in swipers:
@@ -110,7 +110,7 @@ class AddUser(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
     ('/adduser', AddUser),
-    ('/register', Register)
+    ('/register', Register),
 ], debug=True)
 
 def main():
