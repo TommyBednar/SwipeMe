@@ -5,6 +5,9 @@ import jinja2
 from google.appengine.ext import ndb
 from google.appengine.api import users
 
+#If you want to debug, uncomment the line below and stick it wherever you want to break
+#import pdb; pdb.set_trace();
+
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
     extensions=['jinja2.ext.autoescape'],
@@ -71,6 +74,8 @@ class AddUser(webapp2.RequestHandler):
         current_google_account = users.get_current_user()
         new_user = User(key=User.create_key(current_google_account.email()))
         
+        #import pdb; pdb.set_trace();
+
         new_user.google_account = current_google_account
         new_user.is_active = False;
         new_user.user_type = self.request.get('user_type')

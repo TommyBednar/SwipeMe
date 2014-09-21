@@ -76,16 +76,19 @@
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
-      //If user specified price, store it
-      var price_element = $('#asking_price');
-      if (price_element)
+      {% if user_type == "swiper" %}
+      var $price_element = $('#asking_price');
       {
         form_data.asking_price = price_element.val();
+        console.log("Over Here, Dummy!")
       }
-      else
+      
+      {% elif user_type == "swipee" %}
       {
         form_data.asking_price = '0';
+        console.log("Made it!")
       }
+      {% endif %}
 
       //Send new user to datastore. 
       //Redirect to home screen
