@@ -29,12 +29,14 @@ class User(ndb.Model):
     is_active = ndb.BooleanProperty()
 
     # The swiper's asking price.
-    # For now, swipees have no price parameter
+    # Irrelevant for swipees
     asking_price = ndb.IntegerProperty()
 
+    # Given a user, generate a key 
+    # using the user's email as a unique identifier
     @classmethod
-    def create_key(cls, email):
-        return ndb.Key(cls,email)
+    def create_key(cls, user):
+        return ndb.Key(cls,user.email())
 
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
@@ -49,7 +51,7 @@ class LandingPage(webapp2.RequestHandler):
 class Home(webapp2.RequestHandler):
     def get(self):
 
-        user_key = User.create_key(users.get_current_user().email())
+        user_key = User.create_key(users.get_current_user())
         user = user_key.get()
 
         self.response.write('<html><body>')
@@ -71,12 +73,9 @@ class Register(webapp2.RequestHandler):
 class AddUser(webapp2.RequestHandler):
     def post(self):
         
-        current_google_account = users.get_current_user()
-        new_user = User(key=User.create_key(current_google_account.email()))
-        
-        #import pdb; pdb.set_trace();
+        new_user = User(key=User.create_key(users.get_current_user()))
 
-        new_user.google_account = current_google_account
+        new_user.google_account = users.get_current_user()
         new_user.is_active = False;
         new_user.user_type = self.request.get('user_type')
         new_user.phone_number = self.request.get('phone_number')

@@ -37,7 +37,8 @@
     {% if user_type == "swiper" %}
       <div class="form-group">
         <label for="asking_price">Asking Price</label>
-        $<input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
+        <!--TODO: DRY by eliminating duplication of messages -->
+        <input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
         data-bv-integer-message="Please enter a whole dollar value."
         data-bv-lessthan-inclusive="false"
         data-bv-lessthan-value="10"
@@ -62,6 +63,7 @@
   <script src="../js/bootstrapValidator.min.js"></script>
   <script>
 
+    // initializes Bootstrap Validator plugin
     $(document).ready(function() {
       $('#register_form').bootstrapValidator()
     });
@@ -80,17 +82,17 @@
       var $price_element = $('#asking_price');
       {
         form_data.asking_price = price_element.val();
-        console.log("Over Here, Dummy!")
       }
       
+      //If we are processing a swipee, we can insert
+      // a dummy value for price.
       {% elif user_type == "swipee" %}
       {
         form_data.asking_price = '0';
-        console.log("Made it!")
       }
       {% endif %}
 
-      //Send new user to datastore. 
+      //Send form data to backend. 
       //Redirect to home screen
       $.post("add_user",form_data, function(){
         window.location = "home";
