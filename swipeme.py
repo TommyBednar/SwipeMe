@@ -5,8 +5,8 @@ import jinja2
 from google.appengine.ext import ndb
 from google.appengine.api import users
 
-#If you want to debug, uncomment the line below and stick it wherever you want to break
-#import pdb; pdb.set_trace();
+# If you want to debug, uncomment the line below and stick it wherever you want to break
+# import pdb; pdb.set_trace();
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
@@ -18,7 +18,13 @@ class User(ndb.Model):
     google_account = ndb.UserProperty()
 
     # "swiper" or "swipee"
-    user_type = ndb.StringProperty()
+    user_type = ndb.IntegerProperty()
+
+    # Used as an enum for user_type
+    # e.g., member.user_type = User.swiper
+    # if member.user_type == User.swiper
+    # etc.
+    swiper, swipee = range(2)
 
     # User's phone number for texting information
     phone_number = ndb.StringProperty()
@@ -38,6 +44,12 @@ class User(ndb.Model):
     def create_key(cls, user):
         return ndb.Key(cls,user.email())
 
+    def user_type_str(self):
+        if self.user_type == User.swiper:
+            return "swiper"
+        else:
+            return "swipee"
+
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
@@ -55,7 +67,7 @@ class Home(webapp2.RequestHandler):
         user = user_key.get()
 
         self.response.write('<html><body>')
-        self.response.write(user.user_type)
+        self.response.write(user.user_type_str)
         self.response.write('<br>')
         self.response.write(user.phone_number)
         self.response.write('</body></html>')
@@ -77,7 +89,7 @@ class AddUser(webapp2.RequestHandler):
 
         new_user.google_account = users.get_current_user()
         new_user.is_active = False;
-        new_user.user_type = self.request.get('user_type')
+        new_user.user_type = int(self.request.get('user_type'))
         new_user.phone_number = self.request.get('phone_number')
         new_user.asking_price = int(self.request.get('asking_price'))
 
