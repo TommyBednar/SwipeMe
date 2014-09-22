@@ -44,6 +44,7 @@ class User(ndb.Model):
     def create_key(cls, user):
         return ndb.Key(cls,user.email())
 
+    @classmethod
     def user_type_str(self):
         if self.user_type == User.swiper:
             return "swiper"
@@ -67,7 +68,7 @@ class Home(webapp2.RequestHandler):
         user = user_key.get()
 
         self.response.write('<html><body>')
-        self.response.write(user.user_type_str)
+        self.response.write(user.user_type_str())
         self.response.write('<br>')
         self.response.write(user.phone_number)
         self.response.write('</body></html>')
