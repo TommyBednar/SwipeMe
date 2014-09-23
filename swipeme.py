@@ -23,8 +23,8 @@ class User(ndb.Model):
     # User's phone number for texting information
     phone_number = ndb.StringProperty()
 
-    # True if user is currently active.  For the Swipeer,
-    # this means they are in market.  For the Swipee, it 
+    # True if user is currently active.  For the Swiper,
+    # this means they are in market.  For the Swipee, it
     # means they are waiting to be swiped in.
     is_active = ndb.BooleanProperty()
 
@@ -32,7 +32,7 @@ class User(ndb.Model):
     # Irrelevant for swipees
     asking_price = ndb.IntegerProperty()
 
-    # Given a user, generate a key 
+    # Given a user, generate a key
     # using the user's email as a unique identifier
     @classmethod
     def create_key(cls, user):
@@ -41,8 +41,11 @@ class User(ndb.Model):
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
-        
-        #TODO: Check if user is logged in. If so, redirect to /user/home
+
+        user = users.get_current_user()
+        if user:
+            if User.get_by_id(user.email()):
+                self.redirect("/user/home")
 
         #Render the page
         template = JINJA_ENVIRONMENT.get_template("index.html")
@@ -68,11 +71,11 @@ class Register(webapp2.RequestHandler):
 
         template = JINJA_ENVIRONMENT.get_template("user/register.html")
         self.response.write(template.render( { 'user_type': user_type} ))
-        
+
 # Handles POST requests to add a new user.  Also temporary, for testing the Member model
 class AddUser(webapp2.RequestHandler):
     def post(self):
-        
+
         new_user = User(key=User.create_key(users.get_current_user()))
 
         new_user.google_account = users.get_current_user()
@@ -82,7 +85,7 @@ class AddUser(webapp2.RequestHandler):
         new_user.asking_price = int(self.request.get('asking_price'))
 
         new_user.put()
-        
+
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
