@@ -40,9 +40,11 @@
         <!--TODO: DRY by eliminating duplication of messages -->
         <input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
         data-bv-integer-message="Please enter a whole dollar value."
+        data-bv-lessthan
         data-bv-lessthan-inclusive="false"
         data-bv-lessthan-value="10"
         data-bv-lessthan-message="Please enter a number between 1 and 9."
+        data-bv-greaterthan
         data-bv-greaterthan-inclusive="false"
         data-bv-greaterthan-value="0"
         data-bv-greaterthan-message="Please enter a number between 1 and 9."
@@ -70,6 +72,8 @@
 
     function process_form(t,event){
 
+      console.log("Made it into process_form()");
+
       //Create object with user data to pass in post request
       form_data = {"user_type": "{{user_type}}"};
       
@@ -78,10 +82,13 @@
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
+     
+
       {% if user_type == "swiper" %}
+      console.log("Made it into 'swiper' portion");
       var $price_element = $('#asking_price');
       {
-        form_data.asking_price = price_element.val();
+        form_data.asking_price = $price_element.val();
       }
       
       //If we are processing a swipee, we can insert
