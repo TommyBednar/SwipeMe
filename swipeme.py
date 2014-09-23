@@ -61,7 +61,10 @@ class Home(webapp2.RequestHandler):
         self.response.write(user.user_type)
         self.response.write('<br>')
         self.response.write(user.phone_number)
+        self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
         self.response.write('</body></html>')
+
+        
 
 # Temporary handler to display and add users
 class Register(webapp2.RequestHandler):
