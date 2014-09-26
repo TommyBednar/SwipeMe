@@ -5,6 +5,6 @@
 sudo apt-get update
 sudo apt-get -y install unzip
 
-curl -O https://storage.googleapis.com/appengine-sdks/featured/google_appengine_1.9.11.zip
-unzip google_appengine_1.9.11.zip
+curl -O https://storage.googleapis.com/appengine-sdks/featured/google_appengine_1.9.12.zip
+unzip google_appengine_1.9.12.zip
 echo 'export PATH="$PATH:~/google_appengine"' >> ./.bash_profile
