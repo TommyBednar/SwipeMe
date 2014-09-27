@@ -2,8 +2,12 @@ import os
 import webapp2
 import jinja2
 
+from twilio_keys import api_info
+from twilio.rest import TwilioRestClient
+
 from google.appengine.ext import ndb
 from google.appengine.api import users
+
 
 #If you want to debug, uncomment the line below and stick it wherever you want to break
 #import pdb; pdb.set_trace();
@@ -88,6 +92,8 @@ class AddUser(webapp2.RequestHandler):
         new_user.put()
 
 class SMSHandler(webapp2.RequestHandler):
+    client = TwilioRestClient(api_info.account_sid, api_info.auth_token)
+
     def post(self):
         phone = self.request.get('From')
 
@@ -111,8 +117,11 @@ class SMSHandler(webapp2.RequestHandler):
 
         # deal with non-registered users
 
-    def send_message(self):
-
+    def send_message(self, to, body):
+        message = client.messages.create(
+                body=body,
+                to=to,
+                from_="+12162424434")
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
