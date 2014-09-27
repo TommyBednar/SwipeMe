@@ -64,8 +64,6 @@ class Home(webapp2.RequestHandler):
         self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
         self.response.write('</body></html>')
 
-        
-
 # Temporary handler to display and add users
 class Register(webapp2.RequestHandler):
     def get(self):
@@ -89,12 +87,39 @@ class AddUser(webapp2.RequestHandler):
 
         new_user.put()
 
+class SMSHandler(webapp2.RequestHandler):
+    def post(self):
+        phone = self.request.get('From')
+
+        user = Buyer.query(Buyer.phone_number == phone)
+
+        if user:
+            # Deal with user texts
+            
+            return
+
+
+
+        user = Seller.query(Seller.phone_number == phone)
+
+        if user:
+            # Deal with text
+
+            return
+
+
+
+        # deal with non-registered users
+
+    def send_message(self):
+
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
     ('/user/add_user', AddUser),
     ('/user/register', Register),
-    ('/user/home', Home)
+    ('/user/home', Home),
+    ('/sms-gateway', SMSHandler),
 ], debug=True)
 
 def main():
