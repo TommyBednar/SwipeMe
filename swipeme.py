@@ -17,25 +17,24 @@ class User(ndb.Model):
     # Authentication for logging in via Google Accounts API
     google_account = ndb.UserProperty()
 
-    # "swiper" or "swipee"
+    # 1 == buyer. 2 == seller
     user_type = ndb.IntegerProperty()
 
     # Used as an enum for user_type
-    # e.g., member.user_type = User.swiper
-    # if member.user_type == User.swiper
-    # etc.
+    # e.g., member.user_type = User.buyer
+    # if member.user_type == User.seller
     buyer, seller = range(1, 3)
 
     # User's phone number for texting information
     phone_number = ndb.StringProperty()
 
-    # True if user is currently active.  For the Swiper,
-    # this means they are in market.  For the Swipee, it
+    # True if user is currently active.  For the Seller,
+    # this means they are in market.  For the Buyer, it
     # means they are waiting to be swiped in.
     is_active = ndb.BooleanProperty()
 
-    # The swiper's asking price.
-    # Irrelevant for swipees
+    # The seller's asking price.
+    # Irrelevant for buyers
     asking_price = ndb.IntegerProperty()
 
     # Given a user, generate a key
@@ -59,7 +58,6 @@ class LandingPage(webapp2.RequestHandler):
             if User.get_by_id(user.email()):
                 self.redirect("/user/home")
 
-        #Render the page
         template = JINJA_ENVIRONMENT.get_template("index.html")
         self.response.write(template.render())
 
@@ -77,7 +75,7 @@ class Home(webapp2.RequestHandler):
         self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
         self.response.write('</body></html>')
 
-# Temporary handler to display and add users
+# Display registration page for buyers and sellers
 class Register(webapp2.RequestHandler):
     def get(self):
 
@@ -86,7 +84,7 @@ class Register(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template("user/register.html")
         self.response.write(template.render( { 'user_type': user_type} ))
 
-# Handles POST requests to add a new user.  Also temporary, for testing the Member model
+# Using data from registration, create new User and put into datastore
 class AddUser(webapp2.RequestHandler):
     def post(self):
 
