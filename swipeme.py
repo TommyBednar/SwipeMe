@@ -44,7 +44,6 @@ class User(ndb.Model):
     def create_key(cls, user):
         return ndb.Key(cls,user.email())
 
-    @classmethod
     def user_type_str(self):
         if self.user_type == User.buyer:
             return "buyer"
@@ -71,7 +70,7 @@ class Home(webapp2.RequestHandler):
         user = user_key.get()
 
         self.response.write('<html><body>')
-        self.response.write(user.user_type_str())
+        self.response.write(user.user_type_str() + "<br>")
         self.response.write('Buyer: ' + str(User.buyer) + '<br>Seller: ' + str(User.seller) + '<br>')
         self.response.write('<br>')
         self.response.write(user.phone_number)
