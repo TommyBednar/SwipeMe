@@ -24,7 +24,7 @@ class User(ndb.Model):
     # e.g., member.user_type = User.swiper
     # if member.user_type == User.swiper
     # etc.
-    swiper, swipee = range(2)
+    buyer, seller = range(1, 3)
 
     # User's phone number for texting information
     phone_number = ndb.StringProperty()
@@ -46,10 +46,10 @@ class User(ndb.Model):
 
     @classmethod
     def user_type_str(self):
-        if self.user_type == User.swiper:
-            return "swiper"
+        if self.user_type == User.buyer:
+            return "buyer"
         else:
-            return "swipee"
+            return "seller"
 
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
@@ -72,12 +72,11 @@ class Home(webapp2.RequestHandler):
 
         self.response.write('<html><body>')
         self.response.write(user.user_type_str())
+        self.response.write('Buyer: ' + str(User.buyer) + '<br>Seller: ' + str(User.seller) + '<br>')
         self.response.write('<br>')
         self.response.write(user.phone_number)
         self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
         self.response.write('</body></html>')
-
-        
 
 # Temporary handler to display and add users
 class Register(webapp2.RequestHandler):
@@ -101,7 +100,6 @@ class AddUser(webapp2.RequestHandler):
         new_user.asking_price = int(self.request.get('asking_price'))
 
         new_user.put()
-
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),

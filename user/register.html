@@ -35,7 +35,7 @@
         {% endif %}
       </p>
     </div>
-    {% if user_type == 1 %}
+    {% if user_type == 2 %}
       <div class="form-group">
         <label for="asking_price">Asking Price</label>
         <!--TODO: DRY by eliminating duplication of messages -->
@@ -83,7 +83,7 @@
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
-      {% if user_type == 1 %}
+      {% if user_type == 2 %}
       console.log("Made it into 'swiper' portion");
      
       var $price_element = $('#asking_price');
@@ -93,7 +93,7 @@
       
       //If we are processing a swipee, we can insert
       // a dummy value for price.
-      {% elif user_type == 2 %}
+      {% elif user_type == 1 %}
       {
         form_data.asking_price = '0';
       }
