@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set user_type = user_type|int %}
 
 {% block head_config %}
     <link href="../css/main.css" rel="stylesheet">
@@ -26,15 +27,15 @@
       data-bv-notempty="true"
       data-bv-notempty-message="Please enter a valid phone number.">
       <p class="help-block">
-        {% if user_type == "swiper" %}
+        {% if user_type == 1 %}
           You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall. 
           You'll get a text when you're matched with a buyer.
-        {% elif user_type == "swipee" %}
+        {% elif user_type == 2 %}
           You'll send <em>SwipeMe</em> a text when you want to be swiped in to a dining hall.
         {% endif %}
       </p>
     </div>
-    {% if user_type == "swiper" %}
+    {% if user_type == 2 %}
       <div class="form-group">
         <label for="asking_price">Asking Price</label>
         <!--TODO: DRY by eliminating duplication of messages -->
@@ -82,10 +83,9 @@
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
-     
-
-      {% if user_type == "swiper" %}
+      {% if user_type == 2 %}
       console.log("Made it into 'swiper' portion");
+     
       var $price_element = $('#asking_price');
       {
         form_data.asking_price = $price_element.val();
@@ -93,7 +93,7 @@
       
       //If we are processing a swipee, we can insert
       // a dummy value for price.
-      {% elif user_type == "swipee" %}
+      {% elif user_type == 1 %}
       {
         form_data.asking_price = '0';
       }
