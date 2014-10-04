@@ -17,6 +17,9 @@ handlers:
   static_dir: js
 - url: /fonts
   static_dir: fonts
+- url: /tasks/
+  script: proto.APP
+  login: admin
 - url: /user/.*
   script: swipeme.app
   login: required
