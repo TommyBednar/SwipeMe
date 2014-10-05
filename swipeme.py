@@ -3,9 +3,11 @@ import webapp2
 import jinja2
 import urllib2
 import logging
+import time
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
+from google.appengine.api import urlfetch
 
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();
@@ -14,6 +16,22 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
+
+
+# enum kludge used to enumerate buyer and seller status
+# http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+def enum(**enums):
+    return type('Enum', (), enums)
+
+class BuyerProperties(ndb.Model):
+
+    status_t = enum(INACTIVE=1, MATCHING=2, DECIDING=3, WAITING=4)
+    status = ndb.IntegerProperty()
+
+class SellerProperties(ndb.Model):
+
+    status_t = enum(UNAVAILABLE=1, AVAILABLE=2, ASKED=3)
+    status = ndb.IntegerProperty()
 
 class User(ndb.Model):
     # Authentication for logging in via Google Accounts API
@@ -57,21 +75,6 @@ class User(ndb.Model):
         else:
             return "seller"
 
-# enum kludge used to enumerate buyer and seller state
-# http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-def enum(**enums):
-    return type('Enum', (), enums)
-
-class BuyerProperties(ndb.Model):
-
-    status_t = enum(INACTIVE=1, MATCHING=2, DECIDING=3, WAITING=4)
-    status = ndb.IntegerProperty()
-
-
-class SellerProperties(ndb.Model):
-
-    status_t = enum(UNAVAILABLE=1, AVAILABLE=2, ASKED=3)
-    status = ndb.IntegerProperty()
 
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
@@ -124,35 +127,32 @@ class AddUser(webapp2.RequestHandler):
 
 ''' ++++++++++++++++ Matching code ++++++++++++++++++ '''
 class SellerArrives(webapp2.RequestHandler):
-    def post(self):
-        identifier = self.request.get('id')
-        seller = ndb.Key('User', identifier)
+    @staticmethod
+    def make_available(seller_id):
+        seller = ndb.Key('User', seller_id).get()
         if seller.status == SellerProperties.status_t.UNAVAILABLE:
             seller.status = SellerProperties.status_t.AVAILABLE
             seller.put()
 
+    def post(self):
+        seller_id = self.request.get('id')
+        make_available(seller_id)
+
+        
         #send_message(seller,msg.seller_welcome)
 
 
 class MatchTests(webapp2.RequestHandler):
-    def get(self):
-        test_SellerArrives(self)
 
     def test_SellerArrives(self):    
         #set up
         seller_name = 'Walter White'
-        seller_key = ndb.Key('User',name)
+        seller_key = ndb.Key('User',seller_name)
         dummy_seller = User(key=seller_key)
         dummy_seller.status = SellerProperties.status_t.UNAVAILABLE
         dummy_seller.put()
 
-        #Invoke SellerArrives
-        url = self.request.host + "/match/seller_arrives"
-        payload = {'id' : name}
-        urlfetch.fetch(url=url, payload=payload, method=urlfetch.POST)
-
-        #Give the request a chance to process
-        time.sleep(.5)
+        SellerArrives.make_available(seller_name)
 
         dummy_seller = seller_key.get()
         if dummy_seller.status == SellerProperties.status_t.AVAILABLE:
@@ -160,10 +160,12 @@ class MatchTests(webapp2.RequestHandler):
         else:
             logging.info("SellerArrives Failed")
 
+        self.response.write('<html><body>Check the logs.</body></html>')
         #tear down
         seller_key.delete()
 
-
+    def get(self):
+        self.test_SellerArrives()
 
 ''' ++++++++++++++++ End Matching code ++++++++++++++++++ '''
 
@@ -172,7 +174,7 @@ app = webapp2.WSGIApplication([
     ('/user/add_user', AddUser),
     ('/user/register', Register),
     ('/user/home', Home),
-    ('/match/seller_arrives' SellerArrives),
+    ('/match/seller_arrives', SellerArrives),
     ('/tests/match', MatchTests)
 ], debug=True)
 
