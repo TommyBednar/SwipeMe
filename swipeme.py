@@ -70,6 +70,9 @@ class User(ndb.Model):
     # Authentication for logging in via Google Accounts API
     google_account = ndb.UserProperty()
 
+    # User's email. Used for user lookup
+    email = ndb.StringProperty()
+
     # User's phone number for texting information
     #   Used as unique identifier in key.
     phone_number = ndb.StringProperty()
@@ -100,10 +103,11 @@ class User(ndb.Model):
     # Return User with given google user information
     # Return None if no such User found
     @classmethod
-    def get_by_google_account(cls,user):
-        query = cls.query(cls.user == user)
-        if query.has_next():
-            return query.next()
+    def get_by_email(cls,email):
+
+        user_list = cls.query(cls.email == email).fetch(1)
+        if len(user_list) == 1:
+            return user_list[0]
         else:
             return None
 
@@ -122,15 +126,18 @@ class LandingPage(webapp2.RequestHandler):
 class Home(webapp2.RequestHandler):
     def get(self):
 
-        user = User.get_by_email(users.get_current_user())
+        user = User.get_by_email(users.get_current_user().email())
+        if user == None:
+            self.redirect('/')
+        else:
 
-        self.response.write('<html><body>')
-        self.response.write(user.user_type_str() + "<br>")
-        self.response.write('Buyer: ' + str(User.buyer) + '<br>Seller: ' + str(User.seller) + '<br>')
-        self.response.write('<br>')
-        self.response.write(user.phone_number)
-        self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
-        self.response.write('</body></html>')
+            self.response.write('<html><body>')
+            self.response.write(user.user_type_str() + "<br>")
+            self.response.write('Buyer: ' + str(User.buyer) + '<br>Seller: ' + str(User.seller) + '<br>')
+            self.response.write('<br>')
+            self.response.write(user.phone_number)
+            self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
+            self.response.write('</body></html>')
 
 # Display registration page for buyers and sellers
 # Expected request parameters:
@@ -149,11 +156,14 @@ class Register(webapp2.RequestHandler):
 class AddUser(webapp2.RequestHandler):
     def post(self):
 
+        #TODO: check if user already exists
+
         phone = self.request.get('phone_number')
         new_user = User(key=User.create_key(phone))
 
         new_user.phone_number = phone
         new_user.google_account = users.get_current_user()
+        new_user.email = new_user.google_account.email()
         new_user.user_type = int(self.request.get('user_type'))
         
         #Add user_type specific data
