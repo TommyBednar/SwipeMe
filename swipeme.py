@@ -102,7 +102,7 @@ class AddUser(webapp2.RequestHandler):
         new_user.put()
 
 class SMSHandler(webapp2.RequestHandler):
-    client = TwilioRestClient(api_info.account_sid, api_info.auth_token)
+    client = TwilioRestClient(api_info.ACCOUNT_SID, api_info.AUTH_TOKEN)
 
     def post(self):
         phone = self.request.get('From')
@@ -114,8 +114,6 @@ class SMSHandler(webapp2.RequestHandler):
             
             return
 
-
-
         user = Seller.query(Seller.phone_number == phone)
 
         if user:
@@ -123,15 +121,13 @@ class SMSHandler(webapp2.RequestHandler):
 
             return
 
-
-
         # deal with non-registered users
 
     def send_message(self, to, body):
         message = client.messages.create(
                 body=body,
                 to=to,
-                from_="+12162424434")
+                from_=api_info.PHONE_NUMBER)
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
