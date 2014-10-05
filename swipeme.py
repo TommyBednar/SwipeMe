@@ -20,61 +20,92 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 # enum kludge used to enumerate buyer and seller status
 # http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-def enum(**enums):
-    return type('Enum', (), enums)
+#def enum(**enums):
+#   return type('Enum', (), enums)
 
-class BuyerProperties(ndb.Model):
+class Buyer(ndb.Model):
 
-    status_t = enum(INACTIVE=1, MATCHING=2, DECIDING=3, WAITING=4)
-    status = ndb.IntegerProperty()
+    #status_t = enum(INACTIVE=1, MATCHING=2, DECIDING=3, WAITING=4)
+    #Possible status values
+    INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
 
-class SellerProperties(ndb.Model):
+class Seller(ndb.Model):
 
-    status_t = enum(UNAVAILABLE=1, AVAILABLE=2, ASKED=3)
-    status = ndb.IntegerProperty()
+    #status_t = enum(UNAVAILABLE=1, AVAILABLE=2, MATCHED=3)
+    #Possible status values
+    UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
+    buyer_key = ndb.KeyProperty(kind='User')
+    asking_price = ndb.IntegerProperty()
+
+    @staticmethod
+    def make_available(seller_id):
+        seller = ndb.Key('User', seller_id).get()
+        if seller.status == Seller.UNAVAILABLE:
+            seller.status = Seller.AVAILABLE
+            seller.put()
+
+    @staticmethod
+    def make_unavailable(seller_id):
+        seller = ndb.Key('User', seller_id).get()
+        seller.status = Seller.UNAVAILABLE
+        seller.put()
+
+    @staticmethod
+    def make_matched(seller_id):
+        seller = ndb.Key('User', seller_id).get()
+        if seller.status == Seller.AVAILABLE:
+            seller.status = Seller.MATCHED
+            seller.put()
 
 class User(ndb.Model):
-    # Authentication for logging in via Google Accounts API
-    google_account = ndb.UserProperty()
-
+    
+    
     # 1 == buyer. 2 == seller
     user_type = ndb.IntegerProperty()
 
     # Used as an enum for user_type
-    # e.g., member.user_type = User.buyer
-    # if member.user_type == User.seller
+    # e.g., joe_schmoe.user_type = User.buyer
     buyer, seller = range(1, 3)
 
+    # Authentication for logging in via Google Accounts API
+    google_account = ndb.UserProperty()
+
     # User's phone number for texting information
+    #   Used as unique identifier in key.
     phone_number = ndb.StringProperty()
 
-    # True if user is currently active.  For the Seller,
-    # this means they are in market.  For the Buyer, it
-    # means they are waiting to be swiped in.
-    is_active = ndb.BooleanProperty()
+    # The User's state in the matching process
+    #   Possible statuses defined in Buyer and Seller
+    status = ndb.IntegerProperty()
 
-    # The seller's asking price.
-    # Irrelevant for buyers
-    asking_price = ndb.IntegerProperty()
+    #Buyer-specific data
+    buyer_props = ndb.StructuredProperty(Buyer)
 
-    #Special stuff for buyers
-    buyer_props = ndb.StructuredProperty(BuyerProperties)
-
-    #Special stuff for sellers
-    seller_props = ndb.StructuredProperty(SellerProperties)
+    #Seller-specific data
+    seller_props = ndb.StructuredProperty(Seller)
 
     # Given a user, generate a key
-    # using the user's email as a unique identifier
+    # using the user's phone number as a unique identifier
     @classmethod
-    def create_key(cls, user):
-        return ndb.Key(cls,user.email())
+    def create_key(cls, phone):
+        return ndb.Key(cls,phone)
 
+    # Return string representation of user_type
     def user_type_str(self):
         if self.user_type == User.buyer:
             return "buyer"
         else:
             return "seller"
 
+    # Return User with given google user information
+    # Return None if no such User found
+    @classmethod
+    def get_by_google_account(cls,user):
+        query = cls.query(cls.user == user)
+        if query.has_next():
+            return query.next()
+        else:
+            return None
 
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
@@ -82,7 +113,7 @@ class LandingPage(webapp2.RequestHandler):
 
         user = users.get_current_user()
         if user:
-            if User.get_by_id(user.email()):
+            if User.get_by_email(user.email()):
                 self.redirect("/user/home")
 
         template = JINJA_ENVIRONMENT.get_template("index.html")
@@ -91,8 +122,7 @@ class LandingPage(webapp2.RequestHandler):
 class Home(webapp2.RequestHandler):
     def get(self):
 
-        user_key = User.create_key(users.get_current_user())
-        user = user_key.get()
+        user = User.get_by_email(users.get_current_user())
 
         self.response.write('<html><body>')
         self.response.write(user.user_type_str() + "<br>")
@@ -103,69 +133,106 @@ class Home(webapp2.RequestHandler):
         self.response.write('</body></html>')
 
 # Display registration page for buyers and sellers
+# Expected request parameters:
+#   user_type: 1 for buyer or 2 for seller
 class Register(webapp2.RequestHandler):
     def get(self):
 
-        user_type = self.request.get('user_type')
-
         template = JINJA_ENVIRONMENT.get_template("user/register.html")
-        self.response.write(template.render( { 'user_type': user_type} ))
+        self.response.write(template.render( { 'user_type': self.request.get('user_type') } ))
 
 # Using data from registration, create new User and put into datastore
+# Expected request parameters:
+#   'phone_number': string of exactly 10 integers
+#   'user_type': 1 for buyer or 2 for seller
+#   'asking_price': For sellers, a string representing an integer 
 class AddUser(webapp2.RequestHandler):
     def post(self):
 
-        new_user = User(key=User.create_key(users.get_current_user()))
+        phone = self.request.get('phone_number')
+        new_user = User(key=User.create_key(phone))
 
+        new_user.phone_number = phone
         new_user.google_account = users.get_current_user()
-        new_user.is_active = False;
         new_user.user_type = int(self.request.get('user_type'))
-        new_user.phone_number = self.request.get('phone_number')
-        new_user.asking_price = int(self.request.get('asking_price'))
+        
+        #Add user_type specific data
+        if new_user.user_type == User.seller:
+            seller_props = Seller()
+            seller_props.asking_price = int(self.request.get('asking_price'))
+            new_user.seller_props = seller_props
+        else:
+            buyer_props = Buyer()
+            new_user.buyer_props = buyer_props
 
         new_user.put()
 
 ''' ++++++++++++++++ Matching code ++++++++++++++++++ '''
 class SellerArrives(webapp2.RequestHandler):
-    @staticmethod
-    def make_available(seller_id):
-        seller = ndb.Key('User', seller_id).get()
-        if seller.status == SellerProperties.status_t.UNAVAILABLE:
-            seller.status = SellerProperties.status_t.AVAILABLE
-            seller.put()
 
     def post(self):
         seller_id = self.request.get('id')
-        make_available(seller_id)
-
+        Seller.make_available(seller_id)
         
         #send_message(seller,msg.seller_welcome)
 
 
 class MatchTests(webapp2.RequestHandler):
 
-    def test_SellerArrives(self):    
+    def make_dummy_user(self, name, status):
+        dummy_user = User(key=ndb.Key('User',name))
+        dummy_user.status = status
+        return dummy_user.put()
+
+    def assert_user_status(self,user_key,unit_name):
+        dummy_seller = seller_key.get()
+        if dummy_seller.status == status:
+            logging.info(unit_name + " Succeeded")
+        else:
+            logging.info(unit_name + " Failed")
+
+    def test_make_available(self):    
         #set up
         seller_name = 'Walter White'
-        seller_key = ndb.Key('User',seller_name)
-        dummy_seller = User(key=seller_key)
-        dummy_seller.status = SellerProperties.status_t.UNAVAILABLE
-        dummy_seller.put()
+        seller_key = make_dummy_user(seller_name, Seller.status_t.UNAVAILABLE)
+        #Unit under test
+        Seller.make_available(seller_name)
+        #assert equal
+        assert_user_status(seller_key, Seller.status_t.AVAILABLE,'make_available')
+        #tear down
+        seller_key.delete()
 
-        SellerArrives.make_available(seller_name)
+    def test_make_unavailable(self):
+        seller_name = 'Jesse Pinkman'
+        seller_key = make_dummy_user(seller_name, Seller.status_t.AVAILABLE)
+        #Unit under test
+        Seller.make_unavailable(seller_name)
+        #assert equal
+        assert_user_status(seller_key, Seller.status_t.UNAVAILABLE,'make_unavailable')
+        #tear down
+        seller_key.delete()
 
-        dummy_seller = seller_key.get()
-        if dummy_seller.status == SellerProperties.status_t.AVAILABLE:
-            logging.info("SellerArrives Succeeded")
-        else:
-            logging.info("SellerArrives Failed")
+    def test_make_matched(self):
+        #set up
+        seller_name = 'Gustavo Fring'
+        buyer_name = 'Mike Ermentrout'
+        seller_key = make_dummy_user(seller_name, Seller.status_t.AVAILABLE)
+        buyer_key = make_dummy_user(buyer_name, Buyer.status_t.WAITING)
+        #Unit under test
+        Seller.make_matched(seller_name,buyer_name)
+        #assert equal
+        assert_user_status(seller_key, Seller.status_t.MATCHED,'make_matched A')
+        #stored_buyer = seller_key.get().Seller.buyer_key.get().name.??????? SMELL. TOO MANY DOTS
+        #assert_string_equal(buyer_name, )
 
-        self.response.write('<html><body>Check the logs.</body></html>')
         #tear down
         seller_key.delete()
 
     def get(self):
-        self.test_SellerArrives()
+        self.test_make_available()
+        self.test_make_unavailable()
+        self.test_make_matched()
+        self.response.write('<html><body>Check the logs.</body></html>')
 
 ''' ++++++++++++++++ End Matching code ++++++++++++++++++ '''
 
