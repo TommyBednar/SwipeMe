@@ -55,5 +55,5 @@ docs/_build/
 # PyBuilder
 target/
 
-# Twilio API keys
-twilio-keys/api_info.py
+# Ignore the globals file since it contains my Twilio API keys
+swipeme_api_keys.py
