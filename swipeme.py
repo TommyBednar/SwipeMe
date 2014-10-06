@@ -51,10 +51,11 @@ class Seller(ndb.Model):
         seller.put()
 
     @staticmethod
-    def make_matched(seller_id):
+    def make_matched(seller_id,buyer_id):
         seller = ndb.Key('Customer', seller_id).get()
         if seller.status == Seller.AVAILABLE:
             seller.status = Seller.MATCHED
+            seller.seller_props.buyer_key = ndb.Key('Customer',buyer_id)
             seller.put()
 
 class Customer(ndb.Model):
@@ -189,36 +190,46 @@ class SellerArrives(webapp2.RequestHandler):
 
 class MatchTests(webapp2.RequestHandler):
 
-    def make_dummy_customer(self, name, status):
+    @staticmethod
+    def make_dummy_customer(name, status):
         dummy_customer = Customer(key=ndb.Key('Customer',name))
         dummy_customer.status = status
         return dummy_customer.put()
 
-    def assert_customer_status(self,customer_key,unit_name):
-        dummy_seller = seller_key.get()
+    @staticmethod
+    def assert_customer_status(customer_key,status,unit_name):
+        dummy_seller = customer_key.get()
         if dummy_seller.status == status:
             logging.info(unit_name + " Succeeded")
         else:
             logging.info(unit_name + " Failed")
 
+    @staticmethod
+    def assert_string_equal(str1,str2,unit_name):
+        if str1 == str2:
+            logging.info(unit_name + " Succeeded")
+        else:
+            logging.info(unit_name + " Failed")
+
+
     def test_make_available(self):    
         #set up
         seller_name = 'Walter White'
-        seller_key = make_dummy_customer(seller_name, Seller.status_t.UNAVAILABLE)
+        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.UNAVAILABLE)
         #Unit under test
         Seller.make_available(seller_name)
         #assert equal
-        assert_customer_status(seller_key, Seller.status_t.AVAILABLE,'make_available')
+        MatchTests.assert_customer_status(seller_key, Seller.AVAILABLE,'make_available')
         #tear down
         seller_key.delete()
 
     def test_make_unavailable(self):
         seller_name = 'Jesse Pinkman'
-        seller_key = make_dummy_customer(seller_name, Seller.status_t.AVAILABLE)
+        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.AVAILABLE)
         #Unit under test
         Seller.make_unavailable(seller_name)
         #assert equal
-        assert_customer_status(seller_key, Seller.status_t.UNAVAILABLE,'make_unavailable')
+        MatchTests.assert_customer_status(seller_key, Seller.UNAVAILABLE,'make_unavailable')
         #tear down
         seller_key.delete()
 
@@ -226,15 +237,16 @@ class MatchTests(webapp2.RequestHandler):
         #set up
         seller_name = 'Gustavo Fring'
         buyer_name = 'Mike Ermentrout'
-        seller_key = make_dummy_customer(seller_name, Seller.status_t.AVAILABLE)
-        buyer_key = make_dummy_customer(buyer_name, Buyer.status_t.WAITING)
+        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.AVAILABLE)
+        seller =seller_key.get().seller_props = Seller()
+        seller.put()
+        buyer_key = MatchTests.make_dummy_customer(buyer_name, Buyer.WAITING)
         #Unit under test
         Seller.make_matched(seller_name,buyer_name)
         #assert equal
-        assert_customer_status(seller_key, Seller.status_t.MATCHED,'make_matched A')
-        #stored_buyer = seller_key.get().Seller.buyer_key.get().name.??????? SMELL. TOO MANY DOTS
-        #assert_string_equal(buyer_name, )
-
+        MatchTests.assert_customer_status(seller_key, Seller.MATCHED,'make_matched A')
+        stored_buyer_name = seller_key.get().seller_props.buyer_key.id()
+        MatchTests.assert_string_equal(buyer_name,stored_buyer_name, 'make_matched B')
         #tear down
         seller_key.delete()
 
