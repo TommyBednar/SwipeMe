@@ -51,11 +51,32 @@ class Seller(ndb.Model):
     #Possible status values
     UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
 
-    #Mapping from states to possible operations on those states
+    #For each status, mapping from request to states to possible operations on those states
+    #   Each operation is a tuple with a state to move to and a message to send.
     transitions = 
-    {UNAVAILABLE:[{'enter':AVAILABLE}],
-    AVAILABLE:[{'depart':UNAVAILABLE,'timeout':UNAVAILABLE,'match':MATCHED}],
-    MATCHED:[{'noshow':UNAVAILABLE,'depart':UNAVAILABLE,'transact':UNAVAILABLE}]}
+    {
+        UNAVAILABLE:[
+                {'enter':(AVAILABLE,'Welcome!')}
+            ],
+        AVAILABLE:[
+                {'depart':(UNAVAILABLE,'Farewell!'),
+                'timeout':(UNAVAILABLE, 'If you want to get swipe requests, please respond with "Market"'),
+                'match':(MATCHED,'Someone wants swiped in! If you aren\'t available, please respond with "no"')}
+            ],
+        MATCHED:[
+                {'noshow':(UNAVAILABLE,'The buyer you were matched with said you never came. We\'re gonna assume you can\'t swipe people in right now'),
+                'depart':(UNAVAILABLE,'Thanks for letting us know. See you later!')
+                'transact':(UNAVAILABLE,'Thanks for swiping that person in. If you want to get more requests, respond with "Market"')}
+            ]
+    }
+
+    # For each state, a mapping from words that the system recognizes to request strings
+    valid_words = 
+    {
+        UNAVAILABLE:['market':'enter']
+        AVAILABLE:['bye':'depart']
+        MATCHED:['no':'depart']
+    }
 
     #Seller-specific properties
     buyer_key = ndb.KeyProperty(kind='Customer')
@@ -71,15 +92,35 @@ class Seller(ndb.Model):
             self.buyer_key = Customer.create_key(buyer_id)
         self.put()
 
-    def process_SMS_request(self, request_str, buyer_id=None):
+    def execute_request(self, phone, request_str, buyer_id=None):
+        #Define constants to access members of request tuple
+        STATUS = 0
+        MSG = 1
+
         #Check that request is valid for current state
         possible_operations = transitions[self.status]
         assert request_str in possible_operations
 
+        #Get request tuple of (status_to_switch_to, message_to_send)
+        request = possible_operations[request_str]
+
+        #Transition to new status. If necessary, define the buyer associated with the transition
         if buyer_id is None:
-            self.set_status(possible_operations[request_str])
+            self.set_status(request[STATUS])
         else: # buyer_id is defined
-            self.set_status(possible_operations[request_str], buyer_id)
+            self.set_status(request[STATUS], buyer_id)
+
+        self.send_msg(phone,request[MSG])
+
+    def process_SMS_request(self,text,phone):
+        first_word = text.split()[0]
+        possible_words = valid_words[self.status]
+        
+        if first_word not in possible_words:
+            self.request_clarification(phone)
+            return
+
+        self.execute_request(phone, possible_words[first_word])
 
 
 
