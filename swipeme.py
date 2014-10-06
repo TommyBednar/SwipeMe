@@ -21,30 +21,11 @@ class Buyer(ndb.Model):
     #Possible status values
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
 
-    transitions = {}
-
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
 
     #Buyer-specific properties
     seller_key = ndb.KeyProperty(kind='Customer')
-
-    def set_status(self, status, seller_id=None):
-        self.status = status
-        if status == DECIDING or status == WAITING:
-            assert seller_id is not None
-            self.seller_key = Customer.create_key(seller_id)
-        self.put()
-
-    def process_SMS_request(self, request_str, seller_id=None):
-        #Check that request is valid for current state
-        possible_operations = transitions[self.status]
-        assert request_str in possible_operations
-
-        if seller_id is None:
-            self.set_status(possible_operations[request_str])
-        else: # buyer_id is defined
-            self.set_status(possible_operations[request_str], seller_id)
 
 class Seller(ndb.Model):
 
@@ -110,7 +91,9 @@ class Seller(ndb.Model):
         else: # buyer_id is defined
             self.set_status(request[STATUS], buyer_id)
 
-        self.send_msg(phone,request[MSG])
+        #Will be added when Twilio module is integrated
+        #Or I could stub it.
+        #send_msg(phone,request[MSG])
 
     def process_SMS_request(self,text,phone):
         first_word = text.split()[0]
@@ -240,67 +223,6 @@ class AddCustomer(webapp2.RequestHandler):
 
         new_customer.put()
 
-''' ++++++++++++++++ Matching code ++++++++++++++++++ '''
-
-'''
-class MatchTests(webapp2.RequestHandler):
-
-    @staticmethod
-    def make_dummy_customer(name, status):
-        dummy_customer = Customer(key=ndb.Key('Customer',name))
-        dummy_customer.status = status
-        return dummy_customer.put()
-
-    @staticmethod
-    def assert_customer_status(customer_key,status,unit_name):
-        dummy_seller = customer_key.get()
-        if dummy_seller.status == status:
-            logging.info(unit_name + " Succeeded")
-        else:
-            logging.info(unit_name + " Failed")
-
-    @staticmethod
-    def assert_string_equal(str1,str2,unit_name):
-        if str1 == str2:
-            logging.info(unit_name + " Succeeded")
-        else:
-            logging.info(unit_name + " Failed")
-
-
-    def test_set_status(self):
-        #set up
-        seller_name = 'Gustavo Fring'
-        buyer_name = 'Mike Ermentrout'
-        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.AVAILABLE)
-        buyer_key = MatchTests.make_dummy_customer(buyer_name, Buyer.INACTIVE)
-
-        seller =seller_key.get().seller_props = Seller()
-        seller.put()
-        buyer =buyer_key.get().buyer_props = Buyer()
-        buyer.put()
-        
-        #Unit under test
-        Seller.set_status(Seller.MATCHED,seller_name,buyer_name)
-        Buyer.set_status(Buyer.WAITING,buyer_name,seller_name)
-
-        #assert equal
-        MatchTests.assert_customer_status(seller_key, Seller.MATCHED,'make_matched A')
-        MatchTests.assert_customer_status(buyer_key, Buyer.WAITING,'make_matched B')
-        
-        stored_buyer_name = seller_key.get().seller_props.buyer_key.id()
-        MatchTests.assert_string_equal(buyer_name,stored_buyer_name, 'make_matched C')
-
-        stored_seller_name = buyer_key.get().buyer_props.seller_key.id()
-        MatchTests.assert_string_equal(seller_name,stored_seller_name, 'make_matched D')
-        #tear down
-        seller_key.delete()
-        buyer_key.delete()
-
-    def get(self):
-        self.test_set_status()
-        self.response.write('<html><body>Check the logs.</body></html>')
-'''
-''' ++++++++++++++++ End Matching code ++++++++++++++++++ '''
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
