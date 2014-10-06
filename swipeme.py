@@ -3,7 +3,6 @@ import webapp2
 import jinja2
 import urllib2
 import logging
-import time
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -22,35 +21,67 @@ class Buyer(ndb.Model):
     #Possible status values
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
 
+    transitions = {}
+
+    # The Seller's status in the matching process
+    status = ndb.IntegerProperty()
+
     #Buyer-specific properties
     seller_key = ndb.KeyProperty(kind='Customer')
 
-    @staticmethod
-    def set_status(status, buyer_id, seller_id=None):
-        buyer = ndb.Key('Customer', buyer_id).get()
-        buyer.status = status
-        if status == Buyer.DECIDING or status == Buyer.WAITING:
+    def set_status(self, status, seller_id=None):
+        self.status = status
+        if status == DECIDING or status == WAITING:
             assert seller_id is not None
-            buyer.buyer_props.seller_key = Customer.create_key(seller_id)
-        buyer.put()
+            self.seller_key = Customer.create_key(seller_id)
+        self.put()
+
+    def process_SMS_request(self, request_str, seller_id=None):
+        #Check that request is valid for current state
+        possible_operations = transitions[self.status]
+        assert request_str in possible_operations
+
+        if seller_id is None:
+            self.set_status(possible_operations[request_str])
+        else: # buyer_id is defined
+            self.set_status(possible_operations[request_str], seller_id)
 
 class Seller(ndb.Model):
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
 
+    #Mapping from states to possible operations on those states
+    transitions = 
+    {UNAVAILABLE:[{'enter':AVAILABLE}],
+    AVAILABLE:[{'depart':UNAVAILABLE,'timeout':UNAVAILABLE,'match':MATCHED}],
+    MATCHED:[{'noshow':UNAVAILABLE,'depart':UNAVAILABLE,'transact':UNAVAILABLE}]}
+
     #Seller-specific properties
     buyer_key = ndb.KeyProperty(kind='Customer')
     asking_price = ndb.IntegerProperty()
 
-    @staticmethod
-    def set_status(status, seller_id, buyer_id=None):
-        seller = ndb.Key('Customer', seller_id).get()
-        seller.status = status
-        if status == Seller.MATCHED or status == Seller.MATCHED:
-            assert seller_id is not None
-            seller.seller_props.buyer_key = Customer.create_key(buyer_id)
-        seller.put()
+    # The Seller's status in the matching process
+    status = ndb.IntegerProperty()
+
+    def set_status(self, status, buyer_id=None):
+        self.status = status
+        if status == MATCHED:
+            assert buyer_id is not None
+            self.buyer_key = Customer.create_key(buyer_id)
+        self.put()
+
+    def process_SMS_request(self, request_str, buyer_id=None):
+        #Check that request is valid for current state
+        possible_operations = transitions[self.status]
+        assert request_str in possible_operations
+
+        if buyer_id is None:
+            self.set_status(possible_operations[request_str])
+        else: # buyer_id is defined
+            self.set_status(possible_operations[request_str], buyer_id)
+
+
 
 class Customer(ndb.Model):
     
@@ -71,10 +102,6 @@ class Customer(ndb.Model):
     # Customer's phone number for texting information
     #   Used as unique identifier in key.
     phone_number = ndb.StringProperty()
-
-    # The Customer's state in the matching process
-    #   Possible statuses defined in Buyer and Seller
-    status = ndb.IntegerProperty()
 
     #Buyer-specific data
     buyer_props = ndb.StructuredProperty(Buyer)
@@ -146,7 +173,7 @@ class Register(webapp2.RequestHandler):
 # Using data from registration, create new Customer and put into datastore
 # Expected request parameters:
 #   'phone_number': string of exactly 10 integers
-#   'customertype': 1 for buyer or 2 for seller
+#   'customer_type': 1 for buyer or 2 for seller
 #   'asking_price': For sellers, a string representing an integer 
 class AddCustomer(webapp2.RequestHandler):
     def post(self):
@@ -173,15 +200,8 @@ class AddCustomer(webapp2.RequestHandler):
         new_customer.put()
 
 ''' ++++++++++++++++ Matching code ++++++++++++++++++ '''
-class SellerArrives(webapp2.RequestHandler):
 
-    def post(self):
-        seller_id = self.request.get('id')
-        Seller.make_available(seller_id)
-        
-        #send_message(seller,msg.seller_welcome)
-
-
+'''
 class MatchTests(webapp2.RequestHandler):
 
     @staticmethod
@@ -238,7 +258,7 @@ class MatchTests(webapp2.RequestHandler):
     def get(self):
         self.test_set_status()
         self.response.write('<html><body>Check the logs.</body></html>')
-
+'''
 ''' ++++++++++++++++ End Matching code ++++++++++++++++++ '''
 
 app = webapp2.WSGIApplication([
