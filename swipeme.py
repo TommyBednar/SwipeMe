@@ -13,8 +13,6 @@ from google.appengine.api import users
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();
 
-SITE_URL = "pittswipeme.appspot.com"
-
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
     extensions=['jinja2.ext.autoescape'],
