@@ -20,7 +20,7 @@ handlers:
 - url: /tasks/
   script: proto.APP
   login: admin
-- url: /user/.*
+- url: /customer/.*
   script: swipeme.app
   login: required
 - url: /.*

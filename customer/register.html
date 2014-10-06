@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set user_type = user_type|int %}
+{% set customer_type = customer_type|int %}
 
 {% block head_config %}
     <link href="../css/main.css" rel="stylesheet">
@@ -18,8 +18,8 @@
   data-bv-onerror="on_form_invalid(this,event)"
   data-bv-onsuccess="on_form_valid(this,event)">
     <div class="form-group">
-      <label for="user_phone">Cell Phone Number </label>
-      <input type="tel" id="user_phone" name="phone" 
+      <label for="customer_phone">Cell Phone Number </label>
+      <input type="tel" id="customer_phone" name="phone" 
       placeholder="412-555-5555"
       data-bv-phone
       data-bv-phone-country="US"
@@ -27,15 +27,15 @@
       data-bv-notempty="true"
       data-bv-notempty-message="Please enter a valid phone number.">
       <p class="help-block">
-        {% if user_type == 1 %}
+        {% if customer_type == 1 %}
           You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall. 
           You'll get a text when you're matched with a buyer.
-        {% elif user_type == 2 %}
+        {% elif customer_type == 2 %}
           You'll send <em>SwipeMe</em> a text when you want to be swiped in to a dining hall.
         {% endif %}
       </p>
     </div>
-    {% if user_type == 2 %}
+    {% if customer_type == 2 %}
       <div class="form-group">
         <label for="asking_price">Asking Price</label>
         <!--TODO: DRY by eliminating duplication of messages -->
@@ -75,15 +75,15 @@
 
       console.log("Made it into process_form()");
 
-      //Create object with user data to pass in post request
-      form_data = {"user_type": "{{user_type}}"};
+      //Create object with customer data to pass in post request
+      form_data = {"customer_type": "{{customer_type}}"};
       
       //Store phone number as string of 10 digits
-      var phone_number = $('#user_phone').val();
+      var phone_number = $('#customer_phone').val();
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
       
-      {% if user_type == 2 %}
+      {% if customer_type == 2 %}
       console.log("Made it into 'swiper' portion");
      
       var $price_element = $('#asking_price');
@@ -93,7 +93,7 @@
       
       //If we are processing a swipee, we can insert
       // a dummy value for price.
-      {% elif user_type == 1 %}
+      {% elif customer_type == 1 %}
       {
         form_data.asking_price = '0';
       }
@@ -101,7 +101,7 @@
 
       //Send form data to backend. 
       //Redirect to home screen
-      $.post("add_user",form_data, function(){
+      $.post("add_customer",form_data, function(){
         window.location = "home";
       });
     }
