@@ -17,46 +17,40 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
-
-# enum kludge used to enumerate buyer and seller status
-# http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-#def enum(**enums):
-#   return type('Enum', (), enums)
-
 class Buyer(ndb.Model):
 
-    #status_t = enum(INACTIVE=1, MATCHING=2, DECIDING=3, WAITING=4)
     #Possible status values
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
 
+    #Buyer-specific properties
+    seller_key = ndb.KeyProperty(kind='Customer')
+
+    @staticmethod
+    def set_status(status, buyer_id, seller_id=None):
+        buyer = ndb.Key('Customer', buyer_id).get()
+        buyer.status = status
+        if status == Buyer.DECIDING or status == Buyer.WAITING:
+            assert seller_id is not None
+            buyer.buyer_props.seller_key = Customer.create_key(seller_id)
+        buyer.put()
+
 class Seller(ndb.Model):
 
-    #status_t = enum(UNAVAILABLE=1, AVAILABLE=2, MATCHED=3)
     #Possible status values
     UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
+
+    #Seller-specific properties
     buyer_key = ndb.KeyProperty(kind='Customer')
     asking_price = ndb.IntegerProperty()
 
     @staticmethod
-    def make_available(seller_id):
+    def set_status(status, seller_id, buyer_id=None):
         seller = ndb.Key('Customer', seller_id).get()
-        if seller.status == Seller.UNAVAILABLE:
-            seller.status = Seller.AVAILABLE
-            seller.put()
-
-    @staticmethod
-    def make_unavailable(seller_id):
-        seller = ndb.Key('Customer', seller_id).get()
-        seller.status = Seller.UNAVAILABLE
+        seller.status = status
+        if status == Seller.MATCHED or status == Seller.MATCHED:
+            assert seller_id is not None
+            seller.seller_props.buyer_key = Customer.create_key(buyer_id)
         seller.put()
-
-    @staticmethod
-    def make_matched(seller_id,buyer_id):
-        seller = ndb.Key('Customer', seller_id).get()
-        if seller.status == Seller.AVAILABLE:
-            seller.status = Seller.MATCHED
-            seller.seller_props.buyer_key = ndb.Key('Customer',buyer_id)
-            seller.put()
 
 class Customer(ndb.Model):
     
@@ -212,48 +206,37 @@ class MatchTests(webapp2.RequestHandler):
             logging.info(unit_name + " Failed")
 
 
-    def test_make_available(self):    
-        #set up
-        seller_name = 'Walter White'
-        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.UNAVAILABLE)
-        #Unit under test
-        Seller.make_available(seller_name)
-        #assert equal
-        MatchTests.assert_customer_status(seller_key, Seller.AVAILABLE,'make_available')
-        #tear down
-        seller_key.delete()
-
-    def test_make_unavailable(self):
-        seller_name = 'Jesse Pinkman'
-        seller_key = MatchTests.make_dummy_customer(seller_name, Seller.AVAILABLE)
-        #Unit under test
-        Seller.make_unavailable(seller_name)
-        #assert equal
-        MatchTests.assert_customer_status(seller_key, Seller.UNAVAILABLE,'make_unavailable')
-        #tear down
-        seller_key.delete()
-
-    def test_make_matched(self):
+    def test_set_status(self):
         #set up
         seller_name = 'Gustavo Fring'
         buyer_name = 'Mike Ermentrout'
         seller_key = MatchTests.make_dummy_customer(seller_name, Seller.AVAILABLE)
+        buyer_key = MatchTests.make_dummy_customer(buyer_name, Buyer.INACTIVE)
+
         seller =seller_key.get().seller_props = Seller()
         seller.put()
-        buyer_key = MatchTests.make_dummy_customer(buyer_name, Buyer.WAITING)
+        buyer =buyer_key.get().buyer_props = Buyer()
+        buyer.put()
+        
         #Unit under test
-        Seller.make_matched(seller_name,buyer_name)
+        Seller.set_status(Seller.MATCHED,seller_name,buyer_name)
+        Buyer.set_status(Buyer.WAITING,buyer_name,seller_name)
+
         #assert equal
         MatchTests.assert_customer_status(seller_key, Seller.MATCHED,'make_matched A')
+        MatchTests.assert_customer_status(buyer_key, Buyer.WAITING,'make_matched B')
+        
         stored_buyer_name = seller_key.get().seller_props.buyer_key.id()
-        MatchTests.assert_string_equal(buyer_name,stored_buyer_name, 'make_matched B')
+        MatchTests.assert_string_equal(buyer_name,stored_buyer_name, 'make_matched C')
+
+        stored_seller_name = buyer_key.get().buyer_props.seller_key.id()
+        MatchTests.assert_string_equal(seller_name,stored_seller_name, 'make_matched D')
         #tear down
         seller_key.delete()
+        buyer_key.delete()
 
     def get(self):
-        self.test_make_available()
-        self.test_make_unavailable()
-        self.test_make_matched()
+        self.test_set_status()
         self.response.write('<html><body>Check the logs.</body></html>')
 
 ''' ++++++++++++++++ End Matching code ++++++++++++++++++ '''
