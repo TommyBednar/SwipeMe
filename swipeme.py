@@ -2,6 +2,7 @@ import os
 import webapp2
 import jinja2
 import random
+import string
 
 import swipeme_globals
 import swipeme_api_keys
@@ -69,6 +70,10 @@ class User(ndb.Model):
         else:
             return "seller"
 
+    @classmethod
+    def get_active_users(cls):
+        return cls.query()
+
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
@@ -89,10 +94,11 @@ class Home(webapp2.RequestHandler):
         self.response.write(template.render( {
                 'name' : user.name,
                 'is_active' : 'Active' if user.is_active else 'Inactive',
-                'user_type' : 'Buyer' if user.user_type == 1 else 'Seller',
+                'user_type' : string.capitalize(user.user_type_str()),
                 'phone_number' : user.phone_number,
                 'verified' : 'Yes' if user.verified else 'No',
-                'logout_url' : users.create_logout_url(self.request.uri)
+                'logout_url' : users.create_logout_url(self.request.uri),
+                'active_users' : User.get_active_users()
             } ))
         # self.response.write('<html><body>')
         # self.response.write(user.user_type_str() + "<br>")
@@ -106,7 +112,12 @@ class Home(webapp2.RequestHandler):
 class Edit(webapp2.RequestHandler):
     def post(self):
         user = User.get_by_id(users.get_current_user().email());
-        user.name = self.request.get('name')
+        name = self.request.get('name')
+        phone_number = self.request.get('phone_number')
+        if name:
+            user.name = name
+        if phone_number:
+            user.phone_number = phone_number
         user.put()
         self.redirect("/user/home")
 
