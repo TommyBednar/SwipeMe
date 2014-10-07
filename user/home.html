@@ -11,8 +11,7 @@
 {% block container %}
     <div class="page-header">
         <h1>Profile</h1>
-        <h5 onclick="edit_name()">Edit name</h5>
-        <h5 onclick="edit_phone_number()">Edit phone number</h5>
+        <h5 onclick="edit()">Edit</h5>
     </div>
     <div class="col-sm-4">
         <div class="list-group">
@@ -50,23 +49,38 @@
     </div>
 
     <!-- Specify symbols to display for validation.-->
-    <form role="form" action="javascript:process_form()" id="phone_form"
+    <form role="form" action="javascript:process_form()" id="edit_form"
         data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
         data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
         data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
         data-bv-onerror="on_form_invalid(this,event)"
         data-bv-onsuccess="on_form_valid(this,event)">
         <div class="form-group">
-            <input type="tel" id="user_phone" name="phone"
-            placeholder="314-159-2653"
-            data-bv-phone
-            data-bv-phone-country="US"
-            data-bv-phone-message="Please enter a valid phone number."
-            data-bv-notempty="true"
-            data-bv-notempty-message="Please enter a valid phone number.">
+            <div class="col-sm-4">
+                <div class="list-group">
+                    <a href="#" class="list-group-item">
+                        <label>Name: </label>
+                        <input type="text" id="user_name" name="name" value={{ name }}>
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <label>Phone Number: </label>
+                        <input type="tel" id="user_phone" name="phone"
+                            value={{ phone_number }}
+                            data-bv-phone
+                            data-bv-phone-country="US"
+                            data-bv-phone-message="Please enter a valid phone number."
+                            data-bv-notempty="true"
+                            data-bv-notempty-message="Please enter a valid phone number.">
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </a>
+                </div>
+            </div><!-- /.col-sm-4 -->
         </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
+
+
 
 
 {% endblock container %}
@@ -79,14 +93,8 @@
     <script src="../js/bootstrapValidator.min.js"></script>
 
     <script>
-        function edit_name() {
-            x = document.getElementById("name");
-            x.innerHTML = '<form method="post" action="/user/home/edit"><input type="text" name="name"><input type="submit" value="Submit"></form>';
-            x.style.color = 'black';
-        }
-
-        function edit_phone_number() {
-            x = document.getElementById("phone_form");
+        function edit() {
+            x = document.getElementById("edit_form");
             x.style.display = 'block';
         }
 
@@ -95,17 +103,19 @@
     <script>
         // initializes Bootstrap Validator plugin
         $(document).ready(function() {
-          $('#phone_form').bootstrapValidator()
+          $('#edit_form').bootstrapValidator()
         });
 
-        function process_form(t,event){
+        function process_form(t, event) {
+            var name = $('#user_name').val();
+
             //Store phone number as string of 10 digits
             var phone_number = $('#user_phone').val();
             phone_number = phone_number.replace(/\D/g,'');
 
             //Send form data to backend.
             //Redirect to home screen
-            $.post("/user/home/edit", {'phone_number' : phone_number}, function(){
+            $.post("/user/home/edit", {'name' : name, 'phone_number' : phone_number}, function(){
               window.location = "home";
             });
         }
