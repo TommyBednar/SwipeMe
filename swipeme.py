@@ -19,6 +19,9 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     autoescape=True)
 
 class User(ndb.Model):
+    # User's name. Set by default to google_account.nickname().
+    name = ndb.StringProperty()
+
     # Authentication for logging in via Google Accounts API
     google_account = ndb.UserProperty()
 
@@ -80,18 +83,32 @@ class LandingPage(webapp2.RequestHandler):
 
 class Home(webapp2.RequestHandler):
     def get(self):
+        user = User.get_by_id(users.get_current_user().email());
 
-        user_key = User.create_key(users.get_current_user())
-        user = user_key.get()
+        template = JINJA_ENVIRONMENT.get_template("user/home.html")
+        self.response.write(template.render( {
+                'name' : user.name,
+                'is_active' : 'Active' if user.is_active else 'Inactive',
+                'user_type' : 'Buyer' if user.user_type == 1 else 'Seller',
+                'phone_number' : user.phone_number,
+                'verified' : 'Yes' if user.verified else 'No',
+                'logout_url' : users.create_logout_url(self.request.uri)
+            } ))
+        # self.response.write('<html><body>')
+        # self.response.write(user.user_type_str() + "<br>")
+        # self.response.write('<br>')
+        # if not user.verified:
+        #     self.response.write("<form method='POST' action='/user/verify'><input type='text' name='verify_hash' placeholder='Verification code'><input type='submit' value='Verify'></form><br>")
+        # self.response.write(user.phone_number)
+        # self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
+        # self.response.write('</body></html>')
 
-        self.response.write('<html><body>')
-        self.response.write(user.user_type_str() + "<br>")
-        self.response.write('<br>')
-        if not user.verified:
-            self.response.write("<form method='POST' action='/user/verify'><input type='text' name='verify_hash' placeholder='Verification code'><input type='submit' value='Verify'></form><br>")
-        self.response.write(user.phone_number)
-        self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
-        self.response.write('</body></html>')
+class Edit(webapp2.RequestHandler):
+    def post(self):
+        user = User.get_by_id(users.get_current_user().email());
+        user.name = self.request.get('name')
+        user.put()
+        self.redirect("/user/home")
 
 # Display registration page for buyers and sellers
 class Register(webapp2.RequestHandler):
@@ -109,6 +126,7 @@ class AddUser(webapp2.RequestHandler):
         new_user = User(key=User.create_key(users.get_current_user()))
 
         new_user.google_account = users.get_current_user()
+        new_user.name = new_user.google_account.nickname()
         new_user.is_active = False;
         new_user.user_type = int(self.request.get('user_type'))
         new_user.phone_number = self.request.get('phone_number')
@@ -159,6 +177,7 @@ app = webapp2.WSGIApplication([
     ('/user/register', Register),
     ('/user/verify', VerifyPhone),
     ('/user/home', Home),
+    ('/user/home/edit', Edit),
     ('/sms', SMSHandler),
 ], debug=True)
 
