@@ -3,10 +3,14 @@ import webapp2
 import jinja2
 import random
 
+# SwipeMe global settings
 import swipeme_globals
 import swipeme_api_keys
+
+# Twilio
 from twilio.rest import TwilioRestClient
 
+# Appengine-specific includes
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from google.appengine.api import taskqueue
