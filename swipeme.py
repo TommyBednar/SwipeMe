@@ -9,6 +9,7 @@ from twilio.rest import TwilioRestClient
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
+from google.appengine.api import taskqueue
 
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();
@@ -65,6 +66,10 @@ class User(ndb.Model):
             return "buyer"
         else:
             return "seller"
+
+    # Skeleton method for processing a text
+    def process_text(self, message):
+        pass
 
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
@@ -139,19 +144,31 @@ class VerifyPhone(webapp2.RequestHandler):
             self.response.write("Sorry, you entered the wrong code.")
 
 class SMSHandler(webapp2.RequestHandler):
-    client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)
-
     def post(self):
-        phone = self.request.get('From')
         body = self.request.get('Body')
+        phone = self.request.get('From')
         user = User.query(User.phone_number == phone)
+
+        user.process_text(body)
 
     @staticmethod
     def send_message(to, body):
-        message = SMSHandler.client.messages.create(
+        taskqueue.add(url='/smsworker', params={'to': to, 'body': body})
+
+class SMSWorker(webapp2.RequestHandler):
+    client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)
+
+    def post(self):
+        body = self.request.get('body')
+        to = self.request.get('to')
+        def send_message(to, body):
+            message = SMSWorker.client.messages.create(
                 body=body,
                 to=to,
-                from_=swipeme_globals.PHONE_NUMBER)
+                from_=swipeme_globals.PHONE_NUMBER
+            )
+
+        send_message(to, body)
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
@@ -160,6 +177,7 @@ app = webapp2.WSGIApplication([
     ('/user/verify', VerifyPhone),
     ('/user/home', Home),
     ('/sms', SMSHandler),
+    ('/smsworker', SMSWorker),
 ], debug=True)
 
 def main():
