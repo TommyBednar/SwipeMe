@@ -116,8 +116,11 @@ class Edit(webapp2.RequestHandler):
         phone_number = self.request.get('phone_number')
         if name:
             user.name = name
-        if phone_number:
+        if user.phone_number != phone_number:
             user.phone_number = phone_number
+            user.verified = False
+            SMSHandler.send_message(new_user.phone_number, "Please enter the code " + new_user.verification_hash + " to verify your phone number.")
+
         user.put()
         self.redirect("/user/home")
 
