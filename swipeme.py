@@ -9,6 +9,7 @@ import string
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from google.appengine.api import urlfetch
+from google.appengine.api import taskqueue
 
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();
@@ -50,6 +51,14 @@ class Seller(ndb.Model):
     buyer_key = ndb.KeyProperty(kind='Customer')
     asking_price = ndb.IntegerProperty()
 
+    #Used for timeout implementation
+        #A timeout worker is passed the current value of __timeout_counter
+        #If its counter and the Seller's counter don't match when it executes
+        #Then it will return without changing the Seller's state
+    timeout_counter = ndb.IntegerProperty()
+        #Arbitrary maximum value for timeout counter
+    max_timeout_counter = 1000
+
     '''Utility Functions'''
 
     def send_message(self,msg):
@@ -62,6 +71,7 @@ class Seller(ndb.Model):
     def state_trans(func):
         #Do the work and then store the Seller
         def add_storage(self):
+            self.timeout_counter = (self.timeout_counter + 1) % Seller.max_timeout_counter 
             func(self)
             self.put()
         return add_storage
@@ -71,6 +81,7 @@ class Seller(ndb.Model):
     @state_trans
     def on_enter(self):
         self.status = Seller.AVAILABLE
+        self.enqueue_trans('timeout')
         self.send_message(msg.enter)
 
     @state_trans
@@ -78,7 +89,6 @@ class Seller(ndb.Model):
         self.status = Seller.UNAVAILABLE
         self.send_message(msg.depart)
 
-    #Will implement time delays later
     @state_trans
     def on_timeout(self):
         self.status = Seller.UNAVAILABLE
@@ -162,6 +172,25 @@ class Seller(ndb.Model):
         #Otherwise, run the request mapped to that word
         self.execute_request(possible_words[first_word])
 
+    def enqueue_trans(self,request_str):
+        params = {'props_key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.timeout_counter)}
+        taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=10)
+
+#Expected payload: {'key':key of the buyer or seller undergoing transition,
+#                   'request_str':string representing transition to apply,
+#                   'counter': the seller or buyer's __timeout_counter at the time of enqueueing}
+class TransitionWorker(webapp2.RequestHandler):
+    def post(self):
+        #Get the member
+        props_key = ndb.Key(urlsafe=self.request.get('props_key'))
+        #Get the request string
+        request_str = self.request.get('request_str')
+        #Get the buyer_props or seller_props that can handle the request
+        props = props_key.get()
+        #Only execute the request if the seller or buyer 
+        #   is still in the same state as when it was issued
+        if props.timeout_counter == string.atoi(self.request.get('counter')):
+            props.execute_request(request_str)
 
 class TestSeller(webapp2.RequestHandler):
     def get(self):
@@ -174,9 +203,10 @@ class TestSeller(webapp2.RequestHandler):
         new_customer.email = new_customer.google_account.email()
         new_customer.customer_type = Customer.seller
         
-        seller_props = Seller()
+        seller_props = Seller(key=ndb.Key('Seller','Will'))
         seller_props.asking_price = 5
         seller_props.status = Seller.UNAVAILABLE
+        seller_props.timeout_counter = 0
         new_customer.seller_props = seller_props
 
         member_key = new_customer.put()
@@ -184,12 +214,12 @@ class TestSeller(webapp2.RequestHandler):
         #Make available
         seller_props.process_SMS_request('Market', phone)
         #Make unavailable
-        seller_props.process_SMS_request('bye', phone)
+        #seller_props.process_SMS_request('bye', phone)
         #Try bad input
-        seller_props.process_SMS_request('Crunchatize me, Captain', phone)
+        #seller_props.process_SMS_request('Crunchatize me, Captain', phone)
 
         #Teardown
-        member_key.delete()
+        #member_key.delete()
 
 class Customer(ndb.Model):
     
@@ -312,6 +342,7 @@ app = webapp2.WSGIApplication([
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
+    ('/q', TransitionWorker),
     ('/test/seller', TestSeller)
 ], debug=True)
 
