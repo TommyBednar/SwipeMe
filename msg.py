@@ -1,0 +1,7 @@
+enter = 'Welcome!'
+depart = 'Farewell!'
+timeout = 'If you want to get swipe requests, please respond with "Market"'
+match = 'Someone wants swiped in! If you aren\'t available, please respond with "no"'
+noshow = 'The buyer you were matched with said you never came. We\'re gonna assume you can\'t swipe people in right now'
+depart = 'Thanks for letting us know. See you later!'
+transact = 'Thanks for swiping that person in. If you want to get more requests, respond with "Market"'

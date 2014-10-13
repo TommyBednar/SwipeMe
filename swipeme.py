@@ -3,6 +3,7 @@ import webapp2
 import jinja2
 import urllib2
 import logging
+import msg
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -21,94 +22,164 @@ class Buyer(ndb.Model):
     #Possible status values
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
 
-    # The Seller's status in the matching process
+    # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
 
     #Buyer-specific properties
     seller_key = ndb.KeyProperty(kind='Customer')
 
+    def send_message(self,msg):
+        #Stubbed implementation
+        logging.write(msg)
+
+    def request_clarification(self):
+        self.send_message("Didn't catch that, bro.")    
+
 class Seller(ndb.Model):
+
+    '''Seller data'''
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
 
-    #For each status, mapping from request to states to possible operations on those states
-    #   Each operation is a tuple with a state to move to and a message to send.
+    # The Seller's status in the matching process
+    status = ndb.IntegerProperty()
+
+    #Seller-specific properties
+    buyer_key = ndb.KeyProperty(kind='Customer')
+    asking_price = ndb.IntegerProperty()
+
+    '''Utility Functions'''
+
+    def send_message(self,msg):
+        logging.write(msg)
+
+    def request_clarification(self):
+        self.send_message("Didn't catch that, bro.")
+
+    '''State transition decorator'''
+    def state_trans(func):
+        #Do the work and then store the Seller
+        def add_storage(self):
+            func(self)
+            self.put()
+        return add_storage
+
+    '''State transition methods'''
+
+    @state_trans
+    def on_enter(self):
+        self.status = AVAILABLE
+        self.send_message(msg.enter)
+
+    @state_trans
+    def on_depart(self):
+        self.status = UNAVAILABLE
+        self.send_message(msg.depart)
+
+    #Will implement time delays later
+    @state_trans
+    def on_timeout(self):
+        self.status = UNAVAILABLE
+        self.send_message(msg.timeout)
+
+    @state_trans
+    def on_match(self):
+        self.status = MATCHED
+        #Add buyer key to Seller
+        self.send_message(msg.match)
+
+    @state_trans
+    def on_noshow(self):
+        self.status = UNAVAILABLE
+        #Remove buyer key from Seller
+        self.send_message(msg.noshow)
+
+    @state_trans
+    def on_transact(self):
+        self.status = UNAVAILABLE
+        #Remove buyer key from Seller
+        self.send_message(msg.transact)
+
+    #For each status, mapping from requests to operations
     transitions = 
     {
         UNAVAILABLE:[
-                {'enter':(AVAILABLE,'Welcome!')}
+                {'enter':on_enter}
             ],
         AVAILABLE:[
-                {'depart':(UNAVAILABLE,'Farewell!'),
-                'timeout':(UNAVAILABLE, 'If you want to get swipe requests, please respond with "Market"'),
-                'match':(MATCHED,'Someone wants swiped in! If you aren\'t available, please respond with "no"')}
+                {'depart':on_depart,
+                'timeout':on_timeout,
+                'match': on_match}
             ],
         MATCHED:[
-                {'noshow':(UNAVAILABLE,'The buyer you were matched with said you never came. We\'re gonna assume you can\'t swipe people in right now'),
-                'depart':(UNAVAILABLE,'Thanks for letting us know. See you later!')
-                'transact':(UNAVAILABLE,'Thanks for swiping that person in. If you want to get more requests, respond with "Market"')}
+                {'noshow':on_noshow,
+                'depart':on_depart,
+                'transact':on_transact}
             ]
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
     valid_words = 
     {
-        UNAVAILABLE:['market':'enter']
-        AVAILABLE:['bye':'depart']
-        MATCHED:['no':'depart']
+        UNAVAILABLE:{'market':'enter'}
+        AVAILABLE:{'bye':'depart'}
+        MATCHED:{'no':'depart'}
     }
+    
 
-    #Seller-specific properties
-    buyer_key = ndb.KeyProperty(kind='Customer')
-    asking_price = ndb.IntegerProperty()
+    '''Methods to process and route SMS commands'''
 
-    # The Seller's status in the matching process
-    status = ndb.IntegerProperty()
+    def execute_request(self, request_str, buyer_id=None):
 
-    def set_status(self, status, buyer_id=None):
-        self.status = status
-        if status == MATCHED:
-            assert buyer_id is not None
-            self.buyer_key = Customer.create_key(buyer_id)
-        self.put()
-
-    def execute_request(self, phone, request_str, buyer_id=None):
-        #Define constants to access members of request tuple
-        STATUS = 0
-        MSG = 1
-
-        #Check that request is valid for current state
-        possible_operations = transitions[self.status]
+        # Get the dictionary mapping requests to operations on the current state
+        possible_operations = Seller.transitions[self.status]
         assert request_str in possible_operations
 
-        #Get request tuple of (status_to_switch_to, message_to_send)
-        request = possible_operations[request_str]
-
-        #Transition to new status. If necessary, define the buyer associated with the transition
-        if buyer_id is None:
-            self.set_status(request[STATUS])
-        else: # buyer_id is defined
-            self.set_status(request[STATUS], buyer_id)
-
-        #Will be added when Twilio module is integrated
-        #Or I could stub it.
-        #send_msg(phone,request[MSG])
+        # Call the function associated with the request
+        if buyer_id:
+            possible_operations[request_str](self,buyer_id)
+        else:
+            possible_operations[request_str](self)
 
     def process_SMS_request(self,text,phone):
+        #Grab the first word of the SMS
         first_word = text.split()[0]
-        possible_words = valid_words[self.status]
         
+        #If the first word is invalid, ask the customer to try again
+        possible_words = Seller.valid_words[self.status]
         if first_word not in possible_words:
-            self.request_clarification(phone)
+            self.request_clarification()
             return
 
-        self.execute_request(phone, possible_words[first_word])
+        #Otherwise, run the request mapped to that word
+        self.execute_request(possible_words[first_word])
 
 
+class TestSeller(webapp2.RequestHandler):
+    def get():
+        #Setup
+        phone = '3304029937'
+        new_customer = Customer(key=Customer.create_key(phone))
+
+        new_customer.phone_number = phone
+        new_customer.google_account = users.get_current_user()
+        new_customer.email = new_customer.google_account.email()
+        new_customer.customer_type = Customer.seller
+        
+        seller_props = Seller()
+        seller_props.asking_price = 5
+        seller_props.status = Seller.UNAVAILABLE
+        new_customer.seller_props = seller_props
+
+        #Make available
+        Seller.process_SMS_request('Market', phone)
+        #Make unavailable
+        Seller.process_SMS_request('bye', phone)
+        #Try bad input
+        Seller.process_SMS_request('Crunchatize me, Captain', phone)
 
 class Customer(ndb.Model):
-    
     
     # 1 == buyer. 2 == seller
     customer_type = ndb.IntegerProperty()
