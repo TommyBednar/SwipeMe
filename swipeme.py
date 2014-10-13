@@ -4,6 +4,7 @@ import jinja2
 import urllib2
 import logging
 import msg
+import string
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -52,7 +53,7 @@ class Seller(ndb.Model):
     '''Utility Functions'''
 
     def send_message(self,msg):
-        logging.write(msg)
+        logging.info(msg)
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
@@ -69,62 +70,59 @@ class Seller(ndb.Model):
 
     @state_trans
     def on_enter(self):
-        self.status = AVAILABLE
+        self.status = Seller.AVAILABLE
         self.send_message(msg.enter)
 
     @state_trans
     def on_depart(self):
-        self.status = UNAVAILABLE
+        self.status = Seller.UNAVAILABLE
         self.send_message(msg.depart)
 
     #Will implement time delays later
     @state_trans
     def on_timeout(self):
-        self.status = UNAVAILABLE
+        self.status = Seller.UNAVAILABLE
         self.send_message(msg.timeout)
 
     @state_trans
     def on_match(self):
-        self.status = MATCHED
+        self.status = Seller.MATCHED
         #Add buyer key to Seller
         self.send_message(msg.match)
 
     @state_trans
     def on_noshow(self):
-        self.status = UNAVAILABLE
+        self.status = Seller.UNAVAILABLE
         #Remove buyer key from Seller
         self.send_message(msg.noshow)
 
     @state_trans
     def on_transact(self):
-        self.status = UNAVAILABLE
+        self.status = Seller.UNAVAILABLE
         #Remove buyer key from Seller
         self.send_message(msg.transact)
 
     #For each status, mapping from requests to operations
-    transitions = 
-    {
-        UNAVAILABLE:[
-                {'enter':on_enter}
-            ],
-        AVAILABLE:[
-                {'depart':on_depart,
-                'timeout':on_timeout,
-                'match': on_match}
-            ],
-        MATCHED:[
-                {'noshow':on_noshow,
-                'depart':on_depart,
-                'transact':on_transact}
-            ]
+    transitions = {
+    UNAVAILABLE:{
+    'enter':on_enter
+    },
+    AVAILABLE:{
+    'depart':on_depart,
+    'timeout':on_timeout,
+    'match': on_match
+    },
+    MATCHED:{
+    'noshow':on_noshow,
+    'depart':on_depart,
+    'transact':on_transact}
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
-    valid_words = 
-    {
-        UNAVAILABLE:{'market':'enter'}
-        AVAILABLE:{'bye':'depart'}
-        MATCHED:{'no':'depart'}
+    valid_words = {
+    UNAVAILABLE:{'market':'enter'},
+    AVAILABLE:{'bye':'depart'},
+    MATCHED:{'no':'depart'}
     }
     
 
@@ -134,6 +132,7 @@ class Seller(ndb.Model):
 
         # Get the dictionary mapping requests to operations on the current state
         possible_operations = Seller.transitions[self.status]
+        logging.info('Possible operations:' + str(possible_operations))
         assert request_str in possible_operations
 
         # Call the function associated with the request
@@ -144,10 +143,18 @@ class Seller(ndb.Model):
 
     def process_SMS_request(self,text,phone):
         #Grab the first word of the SMS
-        first_word = text.split()[0]
+        first_word = string.lower(text.split()[0])
+        logging.info(first_word)
+        if self.status == Seller.UNAVAILABLE:
+            logging.info('Unavailable')
+        elif self.status == Seller.AVAILABLE:
+            logging.info('Available')
+        else:
+            logging.info('WTF')
         
         #If the first word is invalid, ask the customer to try again
         possible_words = Seller.valid_words[self.status]
+        logging.info('Possible words:' + str(possible_words))
         if first_word not in possible_words:
             self.request_clarification()
             return
@@ -157,7 +164,7 @@ class Seller(ndb.Model):
 
 
 class TestSeller(webapp2.RequestHandler):
-    def get():
+    def get(self):
         #Setup
         phone = '3304029937'
         new_customer = Customer(key=Customer.create_key(phone))
@@ -172,12 +179,17 @@ class TestSeller(webapp2.RequestHandler):
         seller_props.status = Seller.UNAVAILABLE
         new_customer.seller_props = seller_props
 
+        member_key = new_customer.put()
+
         #Make available
-        Seller.process_SMS_request('Market', phone)
+        seller_props.process_SMS_request('Market', phone)
         #Make unavailable
-        Seller.process_SMS_request('bye', phone)
+        seller_props.process_SMS_request('bye', phone)
         #Try bad input
-        Seller.process_SMS_request('Crunchatize me, Captain', phone)
+        seller_props.process_SMS_request('Crunchatize me, Captain', phone)
+
+        #Teardown
+        member_key.delete()
 
 class Customer(ndb.Model):
     
@@ -300,8 +312,7 @@ app = webapp2.WSGIApplication([
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
-    ('/match/seller_arrives', SellerArrives),
-    ('/tests/match', MatchTests)
+    ('/test/seller', TestSeller)
 ], debug=True)
 
 def main():
