@@ -35,11 +35,73 @@ class Buyer(ndb.Model):
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
 
+    def get_parent(self):
+        return self.parent_key.get()
+
+    def get_partner(self):
+        self.get_parent().partner_key.get()
+
+    def set_partner_key(self, new_key):
+        self.get_parent().partner_key = new_key
+
+    '''State transition decorator'''
+    def state_trans(func):
+        #Do the work and then store the Seller
+        def decorated(self, *args, **kwargs):
+            self.counter = (self.counter + 1) % Seller.max_counter 
+            message = func(self, *args, **kwargs)
+            self.get_parent().put()
+            return message
+        return decorated
+
+    '''State transition methods'''
+
+    @state_trans
+    def on_request(self):
+        self.status = Buyer.MATCHING
+        self.get_parent().enqueue_trans('find_match',0)
+        return msg.request
+
+    @state_trans
+    def on_match(self, **kwargs):
+        assert partner_key in kwargs
+        self.status = Buyer.DECIDING
+
+        self.set_partner_key = kwargs[partner_key]
+
+        price = partner_key.get().props().asking_price
+        return msg.decideA + str(kwargs[price]) + msg.decideB
+
+    @state_trans
+    def on_accept(self):
+        self.status = Buyer.WAITING
+        self.get_partner().enqueue_trans('match',0)
+        return msg.waiting
+
+    @state_trans
+    def on_decline(self):
+        self.status = Buyer.INACTIVE
+        self.set_partner_key(None)
+        self.get_partner().enqueue_trans('unlock',0)
+        return msg.decline
+
+    @state_trans
+    def on_wait(self):
+        return msg.waiting
+
+    @state_trans
+    def on_complain(self):
+        self.status = Buyer.MATCHING
+        self.get_partner().enqueue_trans('noshow',0)
+        self.set_partner_key(None)
+        self.get_parent().enqueue_trans('find_match',1)
+        return msg.complain
+
 
 class Seller(ndb.Model):
 
     #Possible status values
-    UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
+    UNAVAILABLE, AVAILABLE, LOCKED, MATCHED = range(1,5)
 
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
@@ -48,6 +110,15 @@ class Seller(ndb.Model):
 
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
+
+    def get_parent(self):
+        return self.parent_key.get()
+
+    def get_partner(self):
+        self.get_parent().partner_key.get()
+
+    def set_partner_key(self, new_key):
+        self.get_parent().partner_key = new_key
 
     #Used for timeout implementation
         #A timeout worker is passed the current value of __timeout_counter
@@ -60,9 +131,9 @@ class Seller(ndb.Model):
     '''State transition decorator'''
     def state_trans(func):
         #Do the work and then store the Seller
-        def decorated(self):
+        def decorated(self, *args, **kwargs):
             self.counter = (self.counter + 1) % Seller.max_counter 
-            message = func(self)
+            message = func(self, *args, **kwargs)
             self.parent_key.get().put()
             return message
         return decorated
@@ -72,12 +143,14 @@ class Seller(ndb.Model):
     @state_trans
     def on_enter(self):
         self.status = Seller.AVAILABLE
-        self.parent_key.get().enqueue_trans('timeout',10)
+        self.get_parent().enqueue_trans('timeout',10)
         return msg.enter
 
     @state_trans
     def on_depart(self):
         self.status = Seller.UNAVAILABLE
+        if self.status == Seller.LOCKED:
+            self.
         return msg.depart
 
     @state_trans
@@ -86,21 +159,33 @@ class Seller(ndb.Model):
         return msg.timeout
 
     @state_trans
+    def on_lock(self, **kwargs):
+        assert partner_key in kwargs
+        self.status = Seller.LOCKED
+        self.set_partner_key(kwargs[partner_key])
+        return None
+
+    @state_trans
+    def on_unlock(self):
+        self.status = Seller.AVAILABLE
+        self.set_partner_key(None)
+        return None
+
+    @state_trans
     def on_match(self):
         self.status = Seller.MATCHED
-        #Add buyer key to Seller
         return msg.match
 
     @state_trans
     def on_noshow(self):
         self.status = Seller.UNAVAILABLE
-        #Remove buyer key from Seller
+        self.set_partner_key(None)
         return msg.noshow
 
     @state_trans
     def on_transact(self):
         self.status = Seller.UNAVAILABLE
-        #Remove buyer key from Seller
+        self.set_partner_key(None)
         return msg.transact
 
     #For each status, mapping from requests to operations
@@ -111,8 +196,12 @@ class Seller(ndb.Model):
     AVAILABLE:{
     'depart':on_depart,
     'timeout':on_timeout,
-    'match': on_match
+    'lock': on_lock,
     },
+    LOCKED:{
+    'match': on_match
+    'depart': on_depart
+    }
     MATCHED:{
     'noshow':on_noshow,
     'depart':on_depart,
@@ -123,6 +212,7 @@ class Seller(ndb.Model):
     valid_words = {
     UNAVAILABLE:{'market':'enter'},
     AVAILABLE:{'bye':'depart'},
+    LOCKED:{'bye':'depart'}
     MATCHED:{'no':'depart'}
     }
 
@@ -218,21 +308,19 @@ class Customer(ndb.Model):
 
     def send_message(self,message):
         #Stubbed implementation
-        logging.info(message)
+        if message:
+            logging.info(message)
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
 
-    def execute_request(self, request_str, other_key=None):
+    def execute_request(self, request_str, **kwargs):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        #import pdb; pdb.set_trace();
         message = possible_transitions[request_str](props)
 
-        self.send_message(message)
-        if other_key:
-            self.partner_key = other_key
+        self.send_message(message, **kwargs)
 
     def process_SMS_request(self,text):
         #Grab the first word of the SMS
