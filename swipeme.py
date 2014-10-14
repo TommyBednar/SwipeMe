@@ -19,6 +19,8 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
+
+
 class Buyer(ndb.Model):
 
     #Possible status values
@@ -27,15 +29,23 @@ class Buyer(ndb.Model):
     # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
 
-    #Buyer-specific properties
-    seller_key = ndb.KeyProperty(kind='Customer')
+    counter = ndb.IntegerProperty()
+    #Arbitrary maximum value for timeout counter
+    max_counter = 1000
+    #The key of the customer that holds this Seller
+    parent = ndb.KeyProperty(kind='Customer')
 
-    def send_message(self,msg):
-        #Stubbed implementation
-        logging.write(msg)
+    def is_valid_word(self, word):
+        return word in Buyer.valid_words[self.status]
 
-    def request_clarification(self):
-        self.send_message("Didn't catch that, bro.")    
+    def execute_request(self, request_str):
+        possible_transitions = Buyer.transitions[self.status]
+        logging.info(possible_transitions)
+        return possible_transitions[request_str]()
+    
+    def process_SMS_request(self,word):
+        possible_requests = Buyer.valid_words[self.status]
+        self.execute_request(possible_requests[word])
 
 class Seller(ndb.Model):
 
@@ -47,31 +57,28 @@ class Seller(ndb.Model):
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
 
-    #Seller-specific properties
-    buyer_key = ndb.KeyProperty(kind='Customer')
     asking_price = ndb.IntegerProperty()
+
+    #The key of the customer that holds this Seller
+    parent = ndb.KeyProperty(kind='Customer')
 
     #Used for timeout implementation
         #A timeout worker is passed the current value of __timeout_counter
         #If its counter and the Seller's counter don't match when it executes
         #Then it will return without changing the Seller's state
-    timeout_counter = ndb.IntegerProperty()
+    counter = ndb.IntegerProperty()
         #Arbitrary maximum value for timeout counter
-    max_timeout_counter = 1000
+    max_counter = 1000
 
-    '''Utility Functions'''
 
-    def send_message(self,msg):
-        logging.info(msg)
-
-    def request_clarification(self):
-        self.send_message("Didn't catch that, bro.")
+    def is_valid_word(self, word):
+        return word in Seller.valid_words[self.status]
 
     '''State transition decorator'''
     def state_trans(func):
         #Do the work and then store the Seller
         def add_storage(self):
-            self.timeout_counter = (self.timeout_counter + 1) % Seller.max_timeout_counter 
+            self.counter = (self.counter + 1) % Seller.max_counter 
             func(self)
             self.put()
         return add_storage
@@ -81,7 +88,7 @@ class Seller(ndb.Model):
     @state_trans
     def on_enter(self):
         self.status = Seller.AVAILABLE
-        self.enqueue_trans('timeout')
+        parent_key.get().enqueue_trans('timeout',10)
         self.send_message(msg.enter)
 
     @state_trans
@@ -134,85 +141,50 @@ class Seller(ndb.Model):
     AVAILABLE:{'bye':'depart'},
     MATCHED:{'no':'depart'}
     }
+
+    def execute_request(self, request_str):
+        possible_transitions = Seller.transitions[self.status]
+        logging.info(possible_transitions)
+        return possible_transitions[request_str]()
     
+    def process_SMS_request(self,word):
+        possible_requests = Seller.valid_words[self.status]
+        self.execute_request(possible_requests[word])
 
-    '''Methods to process and route SMS commands'''
-
-    def execute_request(self, request_str, buyer_id=None):
-
-        # Get the dictionary mapping requests to operations on the current state
-        possible_operations = Seller.transitions[self.status]
-        logging.info('Possible operations:' + str(possible_operations))
-        assert request_str in possible_operations
-
-        # Call the function associated with the request
-        if buyer_id:
-            possible_operations[request_str](self,buyer_id)
-        else:
-            possible_operations[request_str](self)
-
-    def process_SMS_request(self,text,phone):
-        #Grab the first word of the SMS
-        first_word = string.lower(text.split()[0])
-        logging.info(first_word)
-        if self.status == Seller.UNAVAILABLE:
-            logging.info('Unavailable')
-        elif self.status == Seller.AVAILABLE:
-            logging.info('Available')
-        else:
-            logging.info('WTF')
-        
-        #If the first word is invalid, ask the customer to try again
-        possible_words = Seller.valid_words[self.status]
-        logging.info('Possible words:' + str(possible_words))
-        if first_word not in possible_words:
-            self.request_clarification()
-            return
-
-        #Otherwise, run the request mapped to that word
-        self.execute_request(possible_words[first_word])
-
-    def enqueue_trans(self,request_str):
-        params = {'props_key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.timeout_counter)}
-        taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=10)
-
-#Expected payload: {'key':key of the buyer or seller undergoing transition,
+#Expected payload: {'key':key of the customer undergoing transition,
 #                   'request_str':string representing transition to apply,
-#                   'counter': the seller or buyer's __timeout_counter at the time of enqueueing}
+#                   'counter': the seller or buyer's counter at the time of enqueueing}
 class TransitionWorker(webapp2.RequestHandler):
     def post(self):
         #Get the member
-        props_key = ndb.Key(urlsafe=self.request.get('props_key'))
+        props_key = ndb.Key(urlsafe=self.request.get('key'))
         #Get the request string
         request_str = self.request.get('request_str')
         #Get the buyer_props or seller_props that can handle the request
-        props = props_key.get()
+        cust = key.get()
         #Only execute the request if the seller or buyer 
         #   is still in the same state as when it was issued
-        if props.timeout_counter == string.atoi(self.request.get('counter')):
-            props.execute_request(request_str)
+        props = cust.props()
+        if props.counter == string.atoi(self.request.get('counter')):
+            cust.execute_request(request_str)
 
 class TestSeller(webapp2.RequestHandler):
     def get(self):
         #Setup
+        #make an "init_seller" and "init_buyer" routine in Customer
         phone = '3304029937'
-        new_customer = Customer(key=Customer.create_key(phone))
+        cust_key = Customer.create_key(phone)
+        new_customer = Customer(cust_key)
 
         new_customer.phone_number = phone
         new_customer.google_account = users.get_current_user()
         new_customer.email = new_customer.google_account.email()
-        new_customer.customer_type = Customer.seller
-        
-        seller_props = Seller(key=ndb.Key('Seller','Will'))
-        seller_props.asking_price = 5
-        seller_props.status = Seller.UNAVAILABLE
-        seller_props.timeout_counter = 0
-        new_customer.seller_props = seller_props
-
-        member_key = new_customer.put()
+      
+        new_customer.init_seller(5)
+        new_customer.put()
 
         #Make available
-        seller_props.process_SMS_request('Market', phone)
+        new_customer.process_SMS_request('Market')
         #Make unavailable
         #seller_props.process_SMS_request('bye', phone)
         #Try bad input
@@ -220,6 +192,7 @@ class TestSeller(webapp2.RequestHandler):
 
         #Teardown
         #member_key.delete()
+
 
 class Customer(ndb.Model):
     
@@ -246,6 +219,15 @@ class Customer(ndb.Model):
     #Seller-specific data
     seller_props = ndb.StructuredProperty(Seller)
 
+    def props(self):
+        if self.customer_type == Customer.buyer:
+            return self.buyer_props
+        elif self.customer_type == Customer.seller:
+            return self.seller_props
+
+    #Key of other customer in transaction
+    partner_key = ndb.KeyProperty(kind='Customer')
+
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
     @classmethod
@@ -270,6 +252,75 @@ class Customer(ndb.Model):
         else:
             return None
 
+    def init_seller(self,price):
+        self.customer_type = Customer.seller
+
+        seller_props = Seller()
+        seller_props.asking_price = price
+        seller_props.status = Seller.UNAVAILABLE
+        seller_props.counter = 0
+        seller_props.parent_key = self.key
+        self.seller_props = seller_props
+
+        seller_props.put()
+        self.put()
+
+    def init_buyer(self):
+        self.customer_type = Customer.buyer
+
+        buyer_props = Buyer()
+        buyer_props.status = Buyer.INACTIVE
+        buyer_props.counter = 0
+        buyer_props.parent_key = self.key
+        self.buyer_props = buyer_props
+
+        buyer_props.put()
+        self.put()
+
+    def enqueue_trans(self,request_str,delay):
+        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
+        taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=delay)
+
+    def send_message(self,msg):
+        #Stubbed implementation
+        logging.write(msg)
+
+    def request_clarification(self):
+        self.send_message("Didn't catch that, bro.")
+
+    '''Methods to process and route SMS commands'''
+
+    def execute_request(self, request_str, other_key=None):
+
+        props = self.props()
+        possible_transitions = props.transitions[props.status]
+        message = possible_transitions[request_str](props)
+
+        self.send_message(message)
+        if other_key:
+            self.partner_key = other_key
+
+    def process_SMS_request(self,text):
+        #Grab the first word of the SMS
+        first_word = string.lower(text.split()[0])
+        
+        props = self.props()
+        if not props.is_valid_word(first_word):
+            request_clarification()
+            return
+
+        request_str = props.valid_words[props.status][first_word]
+        self.execute_request(request_str)
+'''
+    def execute_request(self, request_str):
+        possible_transitions = Seller.transitions[self.status]
+        logging.info(possible_transitions)
+        return possible_transitions[request_str]()
+    
+    def process_SMS_request(self,word):
+        possible_requests = Seller.valid_words[self.status]
+        self.execute_request(possible_requests[word])
+'''
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
