@@ -33,23 +33,10 @@ class Buyer(ndb.Model):
     #Arbitrary maximum value for timeout counter
     max_counter = 1000
     #The key of the customer that holds this Seller
-    parent = ndb.KeyProperty(kind='Customer')
+    parent_key = ndb.KeyProperty(kind='Customer')
 
-    def is_valid_word(self, word):
-        return word in Buyer.valid_words[self.status]
-
-    def execute_request(self, request_str):
-        possible_transitions = Buyer.transitions[self.status]
-        logging.info(possible_transitions)
-        return possible_transitions[request_str]()
-    
-    def process_SMS_request(self,word):
-        possible_requests = Buyer.valid_words[self.status]
-        self.execute_request(possible_requests[word])
 
 class Seller(ndb.Model):
-
-    '''Seller data'''
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, MATCHED = range(1,4)
@@ -60,7 +47,7 @@ class Seller(ndb.Model):
     asking_price = ndb.IntegerProperty()
 
     #The key of the customer that holds this Seller
-    parent = ndb.KeyProperty(kind='Customer')
+    parent_key = ndb.KeyProperty(kind='Customer')
 
     #Used for timeout implementation
         #A timeout worker is passed the current value of __timeout_counter
@@ -70,54 +57,51 @@ class Seller(ndb.Model):
         #Arbitrary maximum value for timeout counter
     max_counter = 1000
 
-
-    def is_valid_word(self, word):
-        return word in Seller.valid_words[self.status]
-
     '''State transition decorator'''
     def state_trans(func):
         #Do the work and then store the Seller
-        def add_storage(self):
+        def decorated(self):
             self.counter = (self.counter + 1) % Seller.max_counter 
-            func(self)
-            self.put()
-        return add_storage
+            message = func(self)
+            self.parent_key.get().put()
+            return message
+        return decorated
 
     '''State transition methods'''
 
     @state_trans
     def on_enter(self):
         self.status = Seller.AVAILABLE
-        parent_key.get().enqueue_trans('timeout',10)
-        self.send_message(msg.enter)
+        self.parent_key.get().enqueue_trans('timeout',10)
+        return msg.enter
 
     @state_trans
     def on_depart(self):
         self.status = Seller.UNAVAILABLE
-        self.send_message(msg.depart)
+        return msg.depart
 
     @state_trans
     def on_timeout(self):
         self.status = Seller.UNAVAILABLE
-        self.send_message(msg.timeout)
+        return msg.timeout
 
     @state_trans
     def on_match(self):
         self.status = Seller.MATCHED
         #Add buyer key to Seller
-        self.send_message(msg.match)
+        return msg.match
 
     @state_trans
     def on_noshow(self):
         self.status = Seller.UNAVAILABLE
         #Remove buyer key from Seller
-        self.send_message(msg.noshow)
+        return msg.noshow
 
     @state_trans
     def on_transact(self):
         self.status = Seller.UNAVAILABLE
         #Remove buyer key from Seller
-        self.send_message(msg.transact)
+        return msg.transact
 
     #For each status, mapping from requests to operations
     transitions = {
@@ -141,58 +125,6 @@ class Seller(ndb.Model):
     AVAILABLE:{'bye':'depart'},
     MATCHED:{'no':'depart'}
     }
-
-    def execute_request(self, request_str):
-        possible_transitions = Seller.transitions[self.status]
-        logging.info(possible_transitions)
-        return possible_transitions[request_str]()
-    
-    def process_SMS_request(self,word):
-        possible_requests = Seller.valid_words[self.status]
-        self.execute_request(possible_requests[word])
-
-#Expected payload: {'key':key of the customer undergoing transition,
-#                   'request_str':string representing transition to apply,
-#                   'counter': the seller or buyer's counter at the time of enqueueing}
-class TransitionWorker(webapp2.RequestHandler):
-    def post(self):
-        #Get the member
-        props_key = ndb.Key(urlsafe=self.request.get('key'))
-        #Get the request string
-        request_str = self.request.get('request_str')
-        #Get the buyer_props or seller_props that can handle the request
-        cust = key.get()
-        #Only execute the request if the seller or buyer 
-        #   is still in the same state as when it was issued
-        props = cust.props()
-        if props.counter == string.atoi(self.request.get('counter')):
-            cust.execute_request(request_str)
-
-class TestSeller(webapp2.RequestHandler):
-    def get(self):
-        #Setup
-        #make an "init_seller" and "init_buyer" routine in Customer
-        phone = '3304029937'
-        cust_key = Customer.create_key(phone)
-        new_customer = Customer(cust_key)
-
-        new_customer.phone_number = phone
-        new_customer.google_account = users.get_current_user()
-        new_customer.email = new_customer.google_account.email()
-      
-        new_customer.init_seller(5)
-        new_customer.put()
-
-        #Make available
-        new_customer.process_SMS_request('Market')
-        #Make unavailable
-        #seller_props.process_SMS_request('bye', phone)
-        #Try bad input
-        #seller_props.process_SMS_request('Crunchatize me, Captain', phone)
-
-        #Teardown
-        #member_key.delete()
-
 
 class Customer(ndb.Model):
     
@@ -219,14 +151,15 @@ class Customer(ndb.Model):
     #Seller-specific data
     seller_props = ndb.StructuredProperty(Seller)
 
+    #Key of other customer in transaction
+    partner_key = ndb.KeyProperty(kind='Customer')
+
+    #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
             return self.buyer_props
         elif self.customer_type == Customer.seller:
             return self.seller_props
-
-    #Key of other customer in transaction
-    partner_key = ndb.KeyProperty(kind='Customer')
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
@@ -277,23 +210,24 @@ class Customer(ndb.Model):
         buyer_props.put()
         self.put()
 
+    '''Methods to process and route SMS commands'''
+
     def enqueue_trans(self,request_str,delay):
         params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
         taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=delay)
 
-    def send_message(self,msg):
+    def send_message(self,message):
         #Stubbed implementation
-        logging.write(msg)
+        logging.info(message)
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
-
-    '''Methods to process and route SMS commands'''
 
     def execute_request(self, request_str, other_key=None):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
+        #import pdb; pdb.set_trace();
         message = possible_transitions[request_str](props)
 
         self.send_message(message)
@@ -305,22 +239,15 @@ class Customer(ndb.Model):
         first_word = string.lower(text.split()[0])
         
         props = self.props()
-        if not props.is_valid_word(first_word):
+        if first_word not in props.valid_words[props.status]:
             request_clarification()
             return
 
         request_str = props.valid_words[props.status][first_word]
         self.execute_request(request_str)
-'''
-    def execute_request(self, request_str):
-        possible_transitions = Seller.transitions[self.status]
-        logging.info(possible_transitions)
-        return possible_transitions[request_str]()
-    
-    def process_SMS_request(self,word):
-        possible_requests = Seller.valid_words[self.status]
-        self.execute_request(possible_requests[word])
-'''
+
+
+'''Page request handlers'''
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
@@ -358,6 +285,56 @@ class Register(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template("customer/register.html")
         self.response.write(template.render( { 'customer_type': self.request.get('customer_type') } ))
 
+'''END Page request handlers'''
+
+'''Customer manipulation handlers''' 
+#Expected payload: {'key':key of the customer undergoing transition,
+#                   'request_str':string representing transition to apply,
+#                   'counter': the seller or buyer's counter at the time of enqueueing}
+class TransitionWorker(webapp2.RequestHandler):
+    def post(self):
+        logging.info('In TransitionWorker')
+        #Get the member
+        cust_key = ndb.Key(urlsafe=self.request.get('key'))
+        #Get the request string
+        request_str = self.request.get('request_str')
+        #Get the buyer_props or seller_props that can handle the request
+        cust = cust_key.get()
+        #Only execute the request if the seller or buyer 
+        #   is still in the same state as when it was issued
+        props = cust.props()
+        oth = string.atoi(self.request.get('counter'))
+        logging.info('props.counter is ' + str(props.counter) + ' but the payload counter is ' + str(oth))
+        #+ str(props.counter) + ' but the payload counter is ' + str(oth) 
+        if props.counter == string.atoi(self.request.get('counter')):
+            logging.info('Trying to call customer')
+            cust.execute_request(request_str)
+
+class TestSeller(webapp2.RequestHandler):
+    def get(self):
+        #Setup
+        #make an "init_seller" and "init_buyer" routine in Customer
+        phone = '3304029937'
+        cust_key = Customer.create_key(phone)
+        new_customer = Customer(key=cust_key)
+
+        new_customer.phone_number = phone
+        new_customer.google_account = users.get_current_user()
+        new_customer.email = new_customer.google_account.email()
+      
+        new_customer.init_seller(5)
+        new_customer.put()
+
+        #Make available
+        new_customer.process_SMS_request('Market')
+        #Make unavailable
+        #seller_props.process_SMS_request('bye', phone)
+        #Try bad input
+        #seller_props.process_SMS_request('Crunchatize me, Captain', phone)
+
+        #Teardown
+        #member_key.delete()
+
 # Using data from registration, create new Customer and put into datastore
 # Expected request parameters:
 #   'phone_number': string of exactly 10 integers
@@ -387,6 +364,7 @@ class AddCustomer(webapp2.RequestHandler):
 
         new_customer.put()
 
+'''END Customer manipulation handlers''' 
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
