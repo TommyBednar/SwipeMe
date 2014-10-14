@@ -73,10 +73,17 @@ class Buyer(ndb.Model):
         return msg.decideA + str(kwargs[price]) + msg.decideB
 
     @state_trans
+    def on_fail(self):
+        self.status = Buyer.INACTIVE
+        self.set_partner_key(None)
+        return msg.fail
+
+    @state_trans
     def on_accept(self):
         self.status = Buyer.WAITING
         self.get_partner().enqueue_trans('match',0)
-        return msg.waiting
+        self.get_parent().enqueue_trans('check',120)
+        return msg.accept
 
     @state_trans
     def on_decline(self):
@@ -86,8 +93,8 @@ class Buyer(ndb.Model):
         return msg.decline
 
     @state_trans
-    def on_wait(self):
-        return msg.waiting
+    def on_check(self):
+        return msg.check
 
     @state_trans
     def on_complain(self):
@@ -96,6 +103,39 @@ class Buyer(ndb.Model):
         self.set_partner_key(None)
         self.get_parent().enqueue_trans('find_match',1)
         return msg.complain
+
+    @state_trans
+    def on_success(self):
+        self.status = Buyer.INACTIVE
+        self.set_partner_key(None)
+        self.get_partner().enqueue_trans('transact',0)
+
+    #For each status, mapping from requests to operations
+    transitions = {
+    INACTIVE:{
+    'request':on_request
+    },
+    MATCHING:{
+    'match':on_match,
+    'fail':on_fail,
+    },
+    DECIDING:{
+    'accept': on_accept
+    'decline': on_decline
+    }
+    WAITING:{
+    'complain':on_complain,
+    'check':on_check,
+    'success':on_success}
+    }
+
+    # For each state, a mapping from words that the system recognizes to request strings
+    valid_words = {
+    INACTIVE:{'market':'request'},
+    MATCHING:{},
+    DECIDING:{'yes':'accept' , 'no','decline'}
+    WAITING:{'no':'complain', 'yes','success'}
+    }
 
 
 class Seller(ndb.Model):
