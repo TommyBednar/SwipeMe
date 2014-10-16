@@ -2,6 +2,7 @@ import os
 import webapp2
 import jinja2
 import random
+import string
 
 # SwipeMe global settings
 import swipeme_globals
@@ -24,6 +25,9 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     autoescape=True)
 
 class User(ndb.Model):
+    # User's name. Set by default to google_account.nickname().
+    name = ndb.StringProperty()
+
     # Authentication for logging in via Google Accounts API
     google_account = ndb.UserProperty()
 
@@ -63,6 +67,11 @@ class User(ndb.Model):
     def create_key(cls, user):
         return ndb.Key(cls,user.email())
 
+    # TODO: filter active users
+    @classmethod
+    def get_active_users(cls):
+        return cls.query()
+
     # Returns a string representation of the user's
     # type
     def user_type_str(self):
@@ -82,14 +91,13 @@ class LandingPage(webapp2.RequestHandler):
         user = users.get_current_user()
         if user:
             if User.get_by_id(user.email()):
-                self.redirect("/user/home")
+                self.redirect("/user/dash")
 
         template = JINJA_ENVIRONMENT.get_template("index.html")
         self.response.write(template.render())
 
 class Home(webapp2.RequestHandler):
     def get(self):
-
         user_key = User.create_key(users.get_current_user())
         user = user_key.get()
 
@@ -101,6 +109,36 @@ class Home(webapp2.RequestHandler):
         self.response.write(user.phone_number)
         self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
         self.response.write('</body></html>')
+
+class Dash(webapp2.RequestHandler):
+    def get(self):
+        user = User.get_by_id(users.get_current_user().email());
+
+        template = JINJA_ENVIRONMENT.get_template("user/dash.html")
+        self.response.write(template.render( {
+                'name' : user.name,
+                'is_active' : 'Active' if user.is_active else 'Inactive',
+                'user_type' : string.capitalize(user.user_type_str()),
+                'phone_number' : user.phone_number,
+                'verified' : 'Yes' if user.verified else 'No',
+                'logout_url' : users.create_logout_url(self.request.uri),
+                'active_users' : User.get_active_users()
+            } ))
+
+class Edit(webapp2.RequestHandler):
+    def post(self):
+        user = User.get_by_id(users.get_current_user().email());
+        name = self.request.get('name')
+        phone_number = self.request.get('phone_number')
+        if name:
+            user.name = name
+        if user.phone_number != phone_number:
+            user.phone_number = phone_number
+            user.verified = False
+            SMSHandler.send_message(new_user.phone_number, "Please enter the code " + new_user.verification_hash + " to verify your phone number.")
+
+        user.put()
+        self.redirect("/user/dash")
 
 # Display registration page for buyers and sellers
 class Register(webapp2.RequestHandler):
@@ -118,6 +156,7 @@ class AddUser(webapp2.RequestHandler):
         new_user = User(key=User.create_key(users.get_current_user()))
 
         new_user.google_account = users.get_current_user()
+        new_user.name = new_user.google_account.nickname()
         new_user.is_active = False;
         new_user.user_type = int(self.request.get('user_type'))
         new_user.phone_number = self.request.get('phone_number')
@@ -180,6 +219,8 @@ app = webapp2.WSGIApplication([
     ('/user/register', Register),
     ('/user/verify', VerifyPhone),
     ('/user/home', Home),
+    ('/user/dash', Dash),
+    ('/user/dash/edit', Edit),
     ('/sms', SMSHandler),
     ('/smsworker', SMSWorker),
 ], debug=True)
