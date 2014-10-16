@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block head_config %}
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
+    <link href="../css/theme.css" rel="stylesheet">
+    <link href="../css/dash.css" rel="stylesheet">
+{% endblock head_config %}
+
+{% block container %}
+    <div class="page-header">
+        <h1>Profile</h1>
+        <h5 onclick="edit()">Edit</h5>
+    </div>
+    <div class="col-sm-4">
+        <div class="list-group">
+            <a href="#" class="list-group-item active" id="name">{{ name }}</a>
+            <a href="#" class="list-group-item">Status: {{ is_active }}</a>
+            <a href="#" class="list-group-item">User Type: {{ user_type }}</a>
+            <a href="#" class="list-group-item" id="phone_number" >Phone Number: {{ phone_number }}
+            </a>
+            <a href="#" class="list-group-item">Verified: {{ verified }}</a>
+            <a href={{ logout_url }} class="list-group-item">Logout</a>
+        </div>
+    </div><!-- /.col-sm-4 -->
+
+    <div class="page-header">
+        <h1>Active Users</h1>
+    </div>
+    <div class="col-md-6">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>User Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in active_users %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ user.google_account.nickname() }}</td>
+                    <td>{{ user.user_type_str() }}</td>
+                </tr>
+                {% endfor %}
+      </table>
+    </div>
+
+    <!-- Specify symbols to display for validation.-->
+    <form role="form" action="javascript:process_form()" id="edit_form"
+        data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
+        data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
+        data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
+        data-bv-onerror="on_form_invalid(this,event)"
+        data-bv-onsuccess="on_form_valid(this,event)">
+        <div class="form-group">
+            <div class="col-sm-4">
+                <div class="list-group">
+                    <a href="#" class="list-group-item">
+                        <label>Name: </label>
+                        <input type="text" id="user_name" name="name" value={{ name }}>
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <label>Phone Number: </label>
+                        <input type="tel" id="user_phone" name="phone"
+                            value={{ phone_number }}
+                            data-bv-phone
+                            data-bv-phone-country="US"
+                            data-bv-phone-message="Please enter a valid phone number."
+                            data-bv-notempty="true"
+                            data-bv-notempty-message="Please enter a valid phone number.">
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </a>
+                </div>
+            </div><!-- /.col-sm-4 -->
+        </div>
+    </form>
+
+
+
+
+{% endblock container %}
+
+{% block javascript %}
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="../js/bootstrap.min.js"></script>
+    <script src="../js/bootstrapValidator.min.js"></script>
+
+    <script>
+        function edit() {
+            x = document.getElementById("edit_form");
+            x.style.display = 'block';
+        }
+
+    </script>
+
+    <script>
+        // initializes Bootstrap Validator plugin
+        $(document).ready(function() {
+          $('#edit_form').bootstrapValidator()
+        });
+
+        function process_form(t, event) {
+            var name = $('#user_name').val();
+
+            //Store phone number as string of 10 digits
+            var phone_number = $('#user_phone').val();
+            phone_number = phone_number.replace(/\D/g,'');
+
+            //Send form data to backend.
+            //Redirect to dash screen
+            $.post("/user/dash/edit", {'name' : name, 'phone_number' : phone_number}, function(){
+              window.location = "dash";
+            });
+        }
+  </script>
+
+{% endblock javascript %}
