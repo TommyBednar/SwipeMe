@@ -52,6 +52,8 @@ class Buyer(ndb.Model):
             self.counter = (self.counter + 1) % Buyer.max_counter 
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
+            #Store the properties
+            self.put()
             #And store the Customer
             self.get_parent().put()
             return message
@@ -159,6 +161,15 @@ class Buyer(ndb.Model):
 
         return None
 
+    @state_trans
+    def on_retry(self):
+        assert self.status == Buyer.DECIDING
+
+        #If the seller leaves while the buyer is deciding,
+        #let the buyer know and retry the matching process
+        self.status = Buyer.MATCHING
+        self.get_parent().enqueue_trans('find_match',1)
+
     #For each status, mapping from requests to operations
     transitions = {
     INACTIVE:{
@@ -221,6 +232,8 @@ class Seller(ndb.Model):
             self.counter = (self.counter + 1) % Seller.max_counter 
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
+            #Store the properties
+            self.put()
             #And store the Customer
             self.get_parent().put()
             return message
@@ -329,9 +342,9 @@ class Seller(ndb.Model):
     'lock': on_lock,
     },
     LOCKED:{
-    'match': on_match
-    'depart': on_depart
-    }
+    'match': on_match,
+    'depart': on_depart,
+    },
     MATCHED:{
     'noshow':on_noshow,
     'depart':on_depart,
@@ -342,7 +355,7 @@ class Seller(ndb.Model):
     valid_words = {
     UNAVAILABLE:{'market':'enter'},
     AVAILABLE:{'bye':'depart'},
-    LOCKED:{'bye':'depart'}
+    LOCKED:{'bye':'depart'},
     MATCHED:{'no':'depart'}
     }
 
@@ -527,6 +540,24 @@ class TransitionWorker(webapp2.RequestHandler):
         if props.counter == string.atoi(self.request.get('counter')):
             logging.info('Trying to call customer')
             cust.execute_request(request_str)
+
+#Expected payload:  'cust_key': urlsafe key of customer who requested match
+class MatchWorker(webapp2.RequestHandler):
+    def post(self):
+        buyer = ndb.Key(urlsafe=self.request.get('cust_key')).get()
+        #Find seller with lowest price
+        seller_props = Seller.query(Seller.status == Seller.AVAILABLE).order(Seller.asking_price).fetch(1)
+
+        #If a seller is found, lock the seller
+        #and let the buyer decide on the price
+        if seller_props:
+            seller = seller_props.get_parent()
+            seller.execute_request('lock', partner_key=buyer.key)
+            buyer.execute_request('match', partner_key=seller.key)
+        #If no seller is found, report failure to the buyer
+        else:
+            buyer.execute_request('fail')
+
 
 class TestSeller(webapp2.RequestHandler):
     def get(self):
