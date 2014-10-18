@@ -25,10 +25,10 @@ class Buyer(ndb.Model):
 
     #Possible status values
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
-
     # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
-
+    #Delayed requests will only execute if the counter at the time of execution
+    #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
     #Arbitrary maximum value for timeout counter
     max_counter = 1000
@@ -45,70 +45,119 @@ class Buyer(ndb.Model):
         self.get_parent().partner_key = new_key
 
     '''State transition decorator'''
+    #In every state transition method,
     def state_trans(func):
-        #Do the work and then store the Seller
         def decorated(self, *args, **kwargs):
-            self.counter = (self.counter + 1) % Seller.max_counter 
+            #Increment the counter,
+            self.counter = (self.counter + 1) % Buyer.max_counter 
+            #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
+            #And store the Customer
             self.get_parent().put()
             return message
         return decorated
 
     '''State transition methods'''
-
     @state_trans
     def on_request(self):
+        assert self.status == Buyer.INACTIVE 
+
+        #When the buyer asks to be swiped in, try to find
+        #a seller
         self.status = Buyer.MATCHING
         self.get_parent().enqueue_trans('find_match',0)
+
         return msg.request
 
     @state_trans
     def on_match(self, **kwargs):
         assert partner_key in kwargs
-        self.status = Buyer.DECIDING
+        assert self.status == Buyer.MATCHING
 
+        #If a seller is found, ask the buyer
+        #if the price is acceptable
+        self.status = Buyer.DECIDING
         self.set_partner_key = kwargs[partner_key]
 
         price = partner_key.get().props().asking_price
-        return msg.decideA + str(kwargs[price]) + msg.decideB
+        return msg.decide_before_price + str(kwargs[price]) + msg.decide_after_price
 
     @state_trans
     def on_fail(self):
+        assert self.status == Buyer.MATCHING
+
+        #If no seller can be found, let the buyer know
+        #and deactivate the buyer
         self.status = Buyer.INACTIVE
         self.set_partner_key(None)
+
         return msg.fail
 
     @state_trans
     def on_accept(self):
+        assert self.status == Buyer.DECIDING
+
+        #If the buyer accepts the going price,
+        #tell the seller to swipe her in.
+        #Also, trigger a check-in text in two minutes
+        #to see if the seller came
         self.status = Buyer.WAITING
         self.get_partner().enqueue_trans('match',0)
         self.get_parent().enqueue_trans('check',120)
+
         return msg.accept
 
     @state_trans
     def on_decline(self):
+        assert self.status == Buyer.DECIDING
+
+        #If the buyer doesn't accept the going price,
+        #Then free up the seller and deactivate
+        #the buyer
         self.status = Buyer.INACTIVE
         self.set_partner_key(None)
         self.get_partner().enqueue_trans('unlock',0)
+
         return msg.decline
 
+    
     @state_trans
     def on_check(self):
+        assert self.status == Buyer.WAITING
+
+        #After price has been accepted, inquire if
+        #seller came to swipe the buyer in.
+        #If no complaint after 30 seconds, assume success
+        self.get_parent().enqueue_trans('success',30)
+
         return msg.check
 
     @state_trans
     def on_complain(self):
+        assert self.status == Buyer.WAITING
+
+        #If buyer sends text signaling that seller 
+        #never showed, restart matching process
+        #And deactivate the seller
         self.status = Buyer.MATCHING
         self.get_partner().enqueue_trans('noshow',0)
         self.set_partner_key(None)
         self.get_parent().enqueue_trans('find_match',1)
+
         return msg.complain
 
+    
     @state_trans
     def on_success(self):
+        assert self.status == Buyer.WAITING
+
+        #If the transaction occured, deactivate the buyer
+        #And perform end-of-transaction code on the seller
         self.status = Buyer.INACTIVE
         self.set_partner_key(None)
         self.get_partner().enqueue_trans('transact',0)
+
+        return None
 
     #For each status, mapping from requests to operations
     transitions = {
@@ -120,21 +169,22 @@ class Buyer(ndb.Model):
     'fail':on_fail,
     },
     DECIDING:{
-    'accept': on_accept
-    'decline': on_decline
-    }
+    'accept': on_accept,
+    'decline': on_decline,
+    'retry': on_retry,
+    },
     WAITING:{
     'complain':on_complain,
     'check':on_check,
-    'success':on_success}
+    'success':on_success},
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
     valid_words = {
     INACTIVE:{'market':'request'},
     MATCHING:{},
-    DECIDING:{'yes':'accept' , 'no','decline'}
-    WAITING:{'no':'complain', 'yes','success'}
+    DECIDING:{'yes':'accept' , 'no':'decline'},
+    WAITING:{'no':'complain', 'yes':'success'},
     }
 
 
@@ -142,39 +192,37 @@ class Seller(ndb.Model):
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, LOCKED, MATCHED = range(1,5)
-
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
-
+    #The amount that this seller will charge
     asking_price = ndb.IntegerProperty()
-
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
+    #Delayed requests will only execute if the counter at the time of execution
+    #is the same as the counter at the time the request was created.
+    counter = ndb.IntegerProperty()
+    #Arbitrary maximum value for timeout counter
+    max_counter = 1000
 
     def get_parent(self):
         return self.parent_key.get()
 
     def get_partner(self):
-        self.get_parent().partner_key.get()
+        return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
         self.get_parent().partner_key = new_key
 
-    #Used for timeout implementation
-        #A timeout worker is passed the current value of __timeout_counter
-        #If its counter and the Seller's counter don't match when it executes
-        #Then it will return without changing the Seller's state
-    counter = ndb.IntegerProperty()
-        #Arbitrary maximum value for timeout counter
-    max_counter = 1000
-
     '''State transition decorator'''
+    #In every state transition method,
     def state_trans(func):
-        #Do the work and then store the Seller
         def decorated(self, *args, **kwargs):
+            #Increment the counter,
             self.counter = (self.counter + 1) % Seller.max_counter 
+            #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
-            self.parent_key.get().put()
+            #And store the Customer
+            self.get_parent().put()
             return message
         return decorated
 
@@ -182,50 +230,92 @@ class Seller(ndb.Model):
 
     @state_trans
     def on_enter(self):
+        assert self.status == Seller.UNAVAILABLE
+
+        #When a seller indicates that he is ready to swipe,
+        #Make the seller available and trigger a timer to
+        #make the seller unavailable
         self.status = Seller.AVAILABLE
         self.get_parent().enqueue_trans('timeout',10)
+        
         return msg.enter
 
     @state_trans
     def on_depart(self):
+        assert self.status != UNAVAILABLE
+
+        #If the seller leaves when a buyer
+        #has been matched with the seller,
+        #let the buyer know and try to find another match
         self.status = Seller.UNAVAILABLE
-        if self.status == Seller.LOCKED:
-            self.
+        if self.status == Seller.LOCKED or self.status == Seller.MATCHED:
+            self.get_partner().enqueue_trans('retry', 0)
+            self.set_partner_key(None)
+
         return msg.depart
 
     @state_trans
     def on_timeout(self):
+        assert self.status == Seller.AVAILABLE
+
+        #Make the seller opt back in to selling
         self.status = Seller.UNAVAILABLE
+
         return msg.timeout
 
     @state_trans
     def on_lock(self, **kwargs):
         assert partner_key in kwargs
+        assert self.status == AVAILABLE
+
+        #'lock' the seller while the buyer is considering the
+        #seller's price to make sure the seller does not get double-booked
         self.status = Seller.LOCKED
         self.set_partner_key(kwargs[partner_key])
+        
         return None
 
     @state_trans
     def on_unlock(self):
+        assert self.status == Seller.LOCKED
+
+        #If the buyer rejects the seller's price,
+        #Unlock the seller so that other buyers might be matched with that seller
         self.status = Seller.AVAILABLE
         self.set_partner_key(None)
+
         return None
 
     @state_trans
     def on_match(self):
+        assert self.status == Seller.LOCKED
+
+        #If the buyer accepts the seller's price,
+        #Tell the seller to swipe the buyer in
         self.status = Seller.MATCHED
+        
         return msg.match
 
     @state_trans
     def on_noshow(self):
+        assert self.status == Seller.MATCHED
+
+        #If the buyer reports that the seller never came,
+        #deactivate the seller
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
+        
         return msg.noshow
 
     @state_trans
     def on_transact(self):
+        assert self.status == Seller.MATCHED
+
+        #If the buyer reports that she was swiped in,
+        #Make the seller opt in to selling again
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
+        
         return msg.transact
 
     #For each status, mapping from requests to operations
