@@ -44,6 +44,10 @@ class Buyer(ndb.Model):
     def set_partner_key(self, new_key):
         self.get_parent().partner_key = new_key
 
+    def find_match(self):
+        params = {'cust_key':self.key.urlsafe()}
+        taskqueue.add(url="/q/match", params=params)
+
     '''State transition decorator'''
     #In every state transition method,
     def state_trans(func):
@@ -67,7 +71,7 @@ class Buyer(ndb.Model):
         #When the buyer asks to be swiped in, try to find
         #a seller
         self.status = Buyer.MATCHING
-        self.get_parent().enqueue_trans('find_match',0)
+        self.find_match()
 
         return msg.request
 
@@ -144,7 +148,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.MATCHING
         self.get_partner().enqueue_trans('noshow',0)
         self.set_partner_key(None)
-        self.get_parent().enqueue_trans('find_match',1)
+        self.find_match()
 
         return msg.complain
 
@@ -168,7 +172,7 @@ class Buyer(ndb.Model):
         #If the seller leaves while the buyer is deciding,
         #let the buyer know and retry the matching process
         self.status = Buyer.MATCHING
-        self.get_parent().enqueue_trans('find_match',1)
+        self.find_match()
 
     #For each status, mapping from requests to operations
     transitions = {
@@ -621,7 +625,8 @@ app = webapp2.WSGIApplication([
     ('/customer/register', Register),
     ('/customer/home', Home),
     ('/q', TransitionWorker),
-    ('/test/seller', TestSeller)
+    ('/q/match', MatchWorker),
+    ('/test/seller', TestSeller),
 ], debug=True)
 
 def main():
