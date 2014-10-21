@@ -5,6 +5,7 @@ import urllib2
 import logging
 import msg
 import string
+import time
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -42,11 +43,13 @@ class Buyer(ndb.Model):
         self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
-        self.get_parent().partner_key = new_key
+        parent = self.get_parent()
+        parent.partner_key = new_key
+        parent.put()
 
     def find_match(self):
-        params = {'cust_key':self.key.urlsafe()}
-        taskqueue.add(url="/q/match", params=params)
+        params = {'cust_key':self.parent_key.urlsafe()}
+        taskqueue.add(queue_name='delay-queue', url="/q/match", params=params)
 
     '''State transition decorator'''
     #In every state transition method,
@@ -57,6 +60,7 @@ class Buyer(ndb.Model):
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
+            logging.info(self.status)
             self.put()
             #And store the Customer
             self.get_parent().put()
@@ -77,16 +81,17 @@ class Buyer(ndb.Model):
 
     @state_trans
     def on_match(self, **kwargs):
-        assert partner_key in kwargs
+        assert 'partner_key' in kwargs
         assert self.status == Buyer.MATCHING
 
         #If a seller is found, ask the buyer
         #if the price is acceptable
         self.status = Buyer.DECIDING
-        self.set_partner_key = kwargs[partner_key]
+        partner = kwargs['partner_key'].get()
+        self.set_partner_key = partner.key
 
-        price = partner_key.get().props().asking_price
-        return msg.decide_before_price + str(kwargs[price]) + msg.decide_after_price
+        price = partner.props().asking_price
+        return msg.decide_before_price + str(price) + msg.decide_after_price
 
     @state_trans
     def on_fail(self):
@@ -152,7 +157,6 @@ class Buyer(ndb.Model):
 
         return msg.complain
 
-    
     @state_trans
     def on_success(self):
         assert self.status == Buyer.WAITING
@@ -213,6 +217,10 @@ class Seller(ndb.Model):
     asking_price = ndb.IntegerProperty()
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
+    #The key of the buyer to which this seller has been matched
+
+    #TODO: Could be in Customer. DRY
+    partner_key = ndb.KeyProperty(kind='Customer')
     #Delayed requests will only execute if the counter at the time of execution
     #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
@@ -223,6 +231,7 @@ class Seller(ndb.Model):
         return self.parent_key.get()
 
     def get_partner(self):
+        #partner_key is None!!!
         return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
@@ -253,7 +262,7 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        self.get_parent().enqueue_trans('timeout',10)
+        self.get_parent().enqueue_trans('timeout',1000)
         
         return msg.enter
 
@@ -282,13 +291,13 @@ class Seller(ndb.Model):
 
     @state_trans
     def on_lock(self, **kwargs):
-        assert partner_key in kwargs
-        assert self.status == AVAILABLE
+        assert 'partner_key' in kwargs
+        assert self.status == Seller.AVAILABLE
 
         #'lock' the seller while the buyer is considering the
         #seller's price to make sure the seller does not get double-booked
         self.status = Seller.LOCKED
-        self.set_partner_key(kwargs[partner_key])
+        self.set_partner_key(kwargs['partner_key'])
         
         return None
 
@@ -451,12 +460,12 @@ class Customer(ndb.Model):
 
     def enqueue_trans(self,request_str,delay):
         params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
-        taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=delay)
+        taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,message):
         #Stubbed implementation
         if message:
-            logging.info(message)
+            logging.info(self.phone_number + message)
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
@@ -465,17 +474,18 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        message = possible_transitions[request_str](props)
+        message = possible_transitions[request_str](props, **kwargs)
 
-        self.send_message(message, **kwargs)
+        self.send_message(message)
 
-    def process_SMS_request(self,text):
+    def process_SMS(self,text):
         #Grab the first word of the SMS
         first_word = string.lower(text.split()[0])
-        
+        logging.info(self.phone_number + " " + first_word)
         props = self.props()
+        logging.info(props)
         if first_word not in props.valid_words[props.status]:
-            request_clarification()
+            self.request_clarification()
             return
 
         request_str = props.valid_words[props.status][first_word]
@@ -538,11 +548,11 @@ class TransitionWorker(webapp2.RequestHandler):
         #Only execute the request if the seller or buyer 
         #   is still in the same state as when it was issued
         props = cust.props()
-        oth = string.atoi(self.request.get('counter'))
-        logging.info('props.counter is ' + str(props.counter) + ' but the payload counter is ' + str(oth))
+        #oth = string.atoi(self.request.get('counter'))
+        #logging.info('props.counter is ' + str(props.counter) + ' but the payload counter is ' + str(oth))
         #+ str(props.counter) + ' but the payload counter is ' + str(oth) 
         if props.counter == string.atoi(self.request.get('counter')):
-            logging.info('Trying to call customer')
+            #logging.info('Trying to call customer')
             cust.execute_request(request_str)
 
 #Expected payload:  'cust_key': urlsafe key of customer who requested match
@@ -554,39 +564,83 @@ class MatchWorker(webapp2.RequestHandler):
 
         #If a seller is found, lock the seller
         #and let the buyer decide on the price
-        if seller_props:
-            seller = seller_props.get_parent()
+        if len(seller_props) == 1:
+            seller = seller_props[0].get_parent()
             seller.execute_request('lock', partner_key=buyer.key)
             buyer.execute_request('match', partner_key=seller.key)
         #If no seller is found, report failure to the buyer
         else:
             buyer.execute_request('fail')
+class TestHelpers(object):
+    @staticmethod
+    def make_seller():
+        phone = '3304029937'
+        seller_key = Customer.create_key(phone)
+        seller = Customer(key=seller_key)
+        seller.phone_number = phone
+      
+        seller.init_seller(5)
+        seller.put()
 
+        return seller
+
+    @staticmethod
+    def make_buyer():
+        phone = '4128675309'
+        buyer_key = Customer.create_key(phone)
+        buyer = Customer(key=buyer_key)
+        buyer.phone_number = phone
+      
+        buyer.init_buyer()
+        buyer.put()
+
+        return buyer
+
+class TestMatch(webapp2.RequestHandler):
+    def get(self):
+        #Setup seller
+        seller = TestHelpers.make_seller()
+        #Setup buyer
+        buyer = TestHelpers.make_buyer()
+        
+        seller.execute_request('enter')
+        buyer.execute_request('request')
+        seller.execute_request('lock', partner_key=buyer.key)
+        buyer.execute_request('match', partner_key=seller.key)
+        buyer.execute_request('accept')
+        seller.execute_request('match')  
+        buyer.execute_request('susccess')
+        seller.execute_request('transact')  
+
+        '''
+        #Seller checks in
+        seller.process_SMS('Market')
+        #Buyer requests swipe
+        buyer.process_SMS('Market')
+        #Wait for 2 seconds
+        time.sleep(15)
+        #buyer accepts price
+        buyer.process_SMS('yes')
+        #wait for 2 seconds        
+        time.sleep(5)
+        #buyer says that seller came
+        buyer.process_SMS('yes')
+        '''
 
 class TestSeller(webapp2.RequestHandler):
     def get(self):
-        #Setup
-        #make an "init_seller" and "init_buyer" routine in Customer
-        phone = '3304029937'
-        cust_key = Customer.create_key(phone)
-        new_customer = Customer(key=cust_key)
-
-        new_customer.phone_number = phone
-        new_customer.google_account = users.get_current_user()
-        new_customer.email = new_customer.google_account.email()
-      
-        new_customer.init_seller(5)
-        new_customer.put()
+        #Setup seller
+        seller = TestHelpers.make_seller()
 
         #Make available
-        new_customer.process_SMS_request('Market')
+        seller.process_SMS('Market')
         #Make unavailable
-        #seller_props.process_SMS_request('bye', phone)
+        seller.process_SMS('bye')
         #Try bad input
-        #seller_props.process_SMS_request('Crunchatize me, Captain', phone)
+        seller.process_SMS('Crunchatize me, Captain')
 
         #Teardown
-        #member_key.delete()
+        seller.key.delete()
 
 # Using data from registration, create new Customer and put into datastore
 # Expected request parameters:
@@ -624,9 +678,10 @@ app = webapp2.WSGIApplication([
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
-    ('/q', TransitionWorker),
+    ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
-    ('/test/seller', TestSeller),
+    #('/test/seller', TestSeller),
+    ('/test/match', TestMatch),
 ], debug=True)
 
 def main():
