@@ -133,14 +133,14 @@ class Edit(webapp2.RequestHandler):
         user = _get_current_user()
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
-        if name:
-            user.name = name
+        
+        user.name = name
+
         if user.phone_number != phone_number:
             user.phone_number = phone_number
             user.verified = False
 
         user.put()
-        self.redirect("/user/dash")
 
 # Display registration page for buyers and sellers
 class Register(webapp2.RequestHandler):
