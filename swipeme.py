@@ -24,6 +24,10 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
+def _get_current_user():
+    user_key = User.create_key(users.get_current_user())
+    return user_key.get()
+
 class User(ndb.Model):
     # User's name. Set by default to google_account.nickname().
     name = ndb.StringProperty()
@@ -98,8 +102,7 @@ class LandingPage(webapp2.RequestHandler):
 
 class Home(webapp2.RequestHandler):
     def get(self):
-        user_key = User.create_key(users.get_current_user())
-        user = user_key.get()
+        user = _get_current_user()
 
         self.response.write('<html><body>')
         self.response.write(user.user_type_str() + "<br>")
@@ -112,7 +115,7 @@ class Home(webapp2.RequestHandler):
 
 class Dash(webapp2.RequestHandler):
     def get(self):
-        user = User.get_by_id(users.get_current_user().email());
+        user = _get_current_user()
 
         template = JINJA_ENVIRONMENT.get_template("user/dash.html")
         self.response.write(template.render( {
@@ -127,7 +130,7 @@ class Dash(webapp2.RequestHandler):
 
 class Edit(webapp2.RequestHandler):
     def post(self):
-        user = User.get_by_id(users.get_current_user().email());
+        user = _get_current_user()
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
         if name:
@@ -170,8 +173,7 @@ class VerifyPhone(webapp2.RequestHandler):
     def post(self):
         verification_code = self.request.get('verify_hash').strip().upper()
 
-        user_key = User.create_key(users.get_current_user())
-        user = user_key.get()
+        user = _get_current_user()
 
         if user.verified:
             self.response.write("You've already been verified.")
