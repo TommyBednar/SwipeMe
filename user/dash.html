@@ -9,6 +9,26 @@
 {% endblock head_config %}
 
 {% block container %}
+	<div class="modal fade" id="edit_user_modal" tabindex="-1" role="dialog" aria-labelledby="edit_user_modal_title">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">
+						<span aria-hidden="true">&times;</span>
+						<span class="sr-only">Close</span>
+					</button>
+					<h4 class="modal-title" id="edit_user_modal_title">Edit user settings</h4>
+				</div>
+				<div class="modal-body">
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+					<button type="button" class="btn btn-success">Submit</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
     <div class="page-header">
         <h1>Profile</h1>
         <h5 onclick="edit()">Edit</h5>
@@ -96,10 +116,16 @@
     <script src="../js/bootstrapValidator.min.js"></script>
 
     <script>
+		/*
         function edit() {
             x = document.getElementById("edit_form");
             x.style.display = 'block';
         }
+        */
+
+		function edit() {
+			$("#edit_user_modal").modal();
+		}
 
     </script>
 
