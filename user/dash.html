@@ -40,27 +40,12 @@
 	</div>
 
     <div class="page-header">
-        <h1>Profile</h1>
+        <h1>Dashboard</h1>
     </div>
     <div class="col-sm-3">
-		<div class="form-group">
-			<button class="btn btn-primary" id="edit_user_button">Edit user</button>
-			<button class="btn btn-danger" id="delete_user_button">Logout</button>
-		</div>
-		<!--
-        <div class="list-group">
-            <a href="#" class="list-group-item active" id="name">{{ name }}</a>
-            <a href="#" class="list-group-item">Status: {{ is_active }}</a>
-            <a href="#" class="list-group-item">User Type: {{ user_type }}</a>
-            <a href="#" class="list-group-item" id="phone_number" >Phone Number: {{ phone_number }}
-            </a>
-            <a href="#" class="list-group-item">Verified: {{ verified }}</a>
-            <a href={{ logout_url }} class="list-group-item">Logout</a>
-        </div>
-		-->
 		<table class="table table-bordered">
 			<tr>
-				<td class="text-right"><strong>Name:</strong></td><td>{{ name }}</td>
+				<td class="text-right"><strong>Name:</strong></td><td id="name">{{ name }}</td>
 			</tr>
 			<tr>
 				<td class="text-right"><strong>Status:</strong></td><td>{{ is_active }}</td>
@@ -69,39 +54,58 @@
 				<td class="text-right"><strong>Type:</strong></td><td>{{ user_type }}</td>
 			</tr>
 			<tr>
-				<td class="text-right"><strong>Phone number:</strong></td><td>{{ phone_number }}</td>
+				<td class="text-right"><strong>Phone number:</strong></td><td id="phone_number">{{ phone_number }}</td>
 			</tr>
 			<tr>
 				<td class="text-right"><strong>Verified:</strong></td><td>{{ verified }}</td>
 			</tr>
 		</table>
+		<div class="form-group">
+			<button class="btn btn-block btn-primary" id="edit_user_button">Edit user</button>
+			<button class="btn btn-block btn-danger" id="logout_user">Logout</button>
+		</div>
     </div><!-- /.col-sm-4 -->
 
-	<div class="container">
-		<h2>Active Users</h2>
-		<div class="col-sm-9">
-			<div class="table-responsive">
-				<table class="table table-bordered table-striped table-hover">
-					<thead>
-						<tr>
-							<th>#</th>
-							<th>Name</th>
-							<th>User Type</th>
-						</tr>
-					</thead>
-					<tbody>
-						{% for user in active_users %}
-						<tr>
-							<td>{{ loop.index }}</td>
-							<td>{{ user.google_account.nickname() }}</td>
-							<td>{{ user.user_type_str() }}</td>
-						</tr>
-						{% endfor %}
-					</tbody>
-				</table>
+	<div class="col-sm-9">
+		<!--
+		<table class="table table-bordered">
+			<tr>
+				<td class="text-right"><strong>Number of sellers in Market:</strong></td>
+				<td>{{ active_user_count }}</td>
+			</tr>
+			<tr>
+				<td class="text-right"><strong>Lowest price:</strong></td>
+				<td>{{ minimum_price }}</td>
+			</tr>
+		</table>
+		-->
+		<div class="container-fluid">
+			<div class="col-xs-6">
+				{% if active_user_count == 0 %}
+				<div class="alert alert-warning">There are <strong>no</strong> sellers in market.</div>
+				{% else %}
+				<div class="alert alert-success">There are <strong>{{ active_user_count }}</strong> sellers in market.</div>
+				{% endif %}
 			</div>
-		</div><!--/.col-md-6-->
-	</div><!--/.container-->
+			<div class="col-xs-6">
+				<div class="alert alert-info">The current minimum price is <strong>${{ minimum_price }}</strong>.</div>
+			</div>
+		</div>
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h3 class="panel-title">Active Sellers</h3>
+			</div>
+			<div class="panel-body">
+				<ul>
+					{% for user in active_users %}
+					<li>
+						{{ user.google_account.nickname() }}
+					</li>
+					{% endfor %}
+				</ul>
+			</div><!--/.panel-body-->
+		</div><!--/.panel-->
+	</div><!--/.col-sm-9-->
 {% endblock container %}
 
 {% block javascript %}
@@ -122,6 +126,10 @@
 
 			$("#edit_user_button").click(function() {
 				$("#edit_user_modal").modal();
+			});
+
+			$("#logout_user").click(function() {
+				window.location.href = "{{ logout_url }}";
 			});
 
 			$('#edit_user_form').bootstrapValidator({
@@ -167,7 +175,7 @@
 
 			$.post("/user/dash/edit", post_data, function(data) {
 				$("#name").text(name);
-				$("#phone_number").text("Phone Number: " + phone);
+				$("#phone_number").text(phone);
 			});
 		}
   </script>

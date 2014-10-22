@@ -77,6 +77,17 @@ class User(ndb.Model):
     def get_active_users(cls):
         return cls.query()
 
+    @staticmethod
+    def get_minimum_price():
+        minimum = 20
+
+        for user in User.query():
+            if user.asking_price > 0 and user.asking_price < minimum:
+                minimum = user.asking_price
+
+        return minimum
+
+
     # Returns a string representation of the user's
     # type
     def user_type_str(self):
@@ -118,6 +129,8 @@ class Dash(webapp2.RequestHandler):
     def get(self):
         user = _get_current_user()
 
+        active_users = User.get_active_users()
+
         template = JINJA_ENVIRONMENT.get_template("user/dash.html")
         self.response.write(template.render( {
                 'name' : user.name,
@@ -126,7 +139,9 @@ class Dash(webapp2.RequestHandler):
                 'phone_number' : user.phone_number,
                 'verified' : 'Yes' if user.verified else 'No',
                 'logout_url' : users.create_logout_url(self.request.uri),
-                'active_users' : User.get_active_users()
+                'active_users': active_users,
+                'active_user_count': active_users.count(),
+                'minimum_price': User.get_minimum_price(),
             } ))
 
 class Edit(webapp2.RequestHandler):
