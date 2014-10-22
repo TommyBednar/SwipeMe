@@ -23,13 +23,13 @@
 					<div class="modal-body">
 						<div class="form-group">
 							<label for="user_name">Name: </label>
-							<input type="text" class="form-control" id="user_name" name="user_phone" value="{{ name }}"
+							<input type="text" class="form-control" id="edit_user_name" name="user_phone" value="{{ name }}"
 								data-bv-notempty="true"
 								data-bv-notempty-message="Please enter your name.">
 						</div>
 						<div class="form-group">
 							<label for="user_phone">Phone: </label>
-							<input type="tel" class="form-control" id="user_phone" name="user_phone" value="{{ phone_number }}"
+							<input type="tel" class="form-control" id="edit_user_phone" name="user_phone" value="{{ phone_number }}"
 								data-bv-phone
 								data-bv-phone-country="US"
 								data-bv-phone-message="Please enter a valid phone number."
@@ -155,36 +155,17 @@
 			});
         });
 
-        function process_form(t, event) {
-            var name = $('#user_name').val();
-
-            //Store phone number as string of 10 digits
-            var phone_number = $('#user_phone').val();
-            phone_number = phone_number.replace(/\D/g,'');
-
-            //Send form data to backend.
-            //Redirect to dash screen
-            $.post("/user/dash/edit", {'name' : name, 'phone_number' : phone_number}, function(){
-              window.location = "dash";
-            });
-        }
-
 		function update_user() {
 			$("#edit_user_modal").hide();
 			var post_data = {
-				'name': $("#user_name").val(),
-				'phone_number': $("#user_phone").val()
+				'name': $("#edit_user_name").val(),
+				'phone_number': $("#edit_user_phone").val()
 			};
 
 			$.post("/user/dash/edit", post_data, function(data) {
-				refresh_user_data();
+				$("#name").val($("#edit_user_name"));
+				$("#phone_number").val($("#edit_user_phone"));
 			});
-		}
-
-		// User data refresh stub method
-		// TODO: Fix this
-		function refresh_user_data() {
-			return true;
 		}
   </script>
 
