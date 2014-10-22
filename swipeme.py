@@ -1,4 +1,5 @@
 import os
+import re
 import webapp2
 import jinja2
 import random
@@ -134,9 +135,10 @@ class Edit(webapp2.RequestHandler):
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
         
-        user.name = name
+        if name:
+            user.name = name
 
-        if user.phone_number != phone_number:
+        if phone_number and re.compile("^[0-9]{10}$").match(phone_number):
             user.phone_number = phone_number
             user.verified = False
 

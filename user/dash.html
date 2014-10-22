@@ -27,7 +27,7 @@
 						</div>
 						<div class="form-group">
 							<label for="user_phone">Phone: </label>
-							<input type="tel" class="form-control" id="edit_user_phone" name="edit_user_phone" value="{{ phone_number }}">
+							<input type="tel" class="form-control" id="edit_user_phone" name="edit_user_phone" value="{{ phone_number }}" placeholder="4405551234">
 						</div>
 					</div>
 					<div class="modal-footer">
@@ -41,9 +41,13 @@
 
     <div class="page-header">
         <h1>Profile</h1>
-        <h5 id="edit_user_button">Edit</h5>
     </div>
     <div class="col-sm-3">
+		<div class="form-group">
+			<button class="btn btn-primary" id="edit_user_button">Edit user</button>
+			<button class="btn btn-danger" id="delete_user_button">Logout</button>
+		</div>
+		<!--
         <div class="list-group">
             <a href="#" class="list-group-item active" id="name">{{ name }}</a>
             <a href="#" class="list-group-item">Status: {{ is_active }}</a>
@@ -53,6 +57,24 @@
             <a href="#" class="list-group-item">Verified: {{ verified }}</a>
             <a href={{ logout_url }} class="list-group-item">Logout</a>
         </div>
+		-->
+		<table class="table table-bordered">
+			<tr>
+				<td class="text-right"><strong>Name:</strong></td><td>{{ name }}</td>
+			</tr>
+			<tr>
+				<td class="text-right"><strong>Status:</strong></td><td>{{ is_active }}</td>
+			</tr>
+			<tr>
+				<td class="text-right"><strong>Type:</strong></td><td>{{ user_type }}</td>
+			</tr>
+			<tr>
+				<td class="text-right"><strong>Phone number:</strong></td><td>{{ phone_number }}</td>
+			</tr>
+			<tr>
+				<td class="text-right"><strong>Verified:</strong></td><td>{{ verified }}</td>
+			</tr>
+		</table>
     </div><!-- /.col-sm-4 -->
 
 	<div class="container">
@@ -113,10 +135,7 @@
 					edit_user_name: {
 						validators: {
 							notEmpty: {
-								message: "Please enter your email address."
-							},
-							emailAddress: {
-								message: "Please enter a valid email address."
+								message: "Please enter your name."
 							}
 						}
 					},
