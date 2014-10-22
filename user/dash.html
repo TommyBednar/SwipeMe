@@ -23,23 +23,16 @@
 					<div class="modal-body">
 						<div class="form-group">
 							<label for="user_name">Name: </label>
-							<input type="text" class="form-control" id="edit_user_name" name="user_phone" value="{{ name }}"
-								data-bv-notempty="true"
-								data-bv-notempty-message="Please enter your name.">
+							<input type="text" class="form-control" id="edit_user_name" name="edit_user_name" value="{{ name }}">
 						</div>
 						<div class="form-group">
 							<label for="user_phone">Phone: </label>
-							<input type="tel" class="form-control" id="edit_user_phone" name="user_phone" value="{{ phone_number }}"
-								data-bv-phone
-								data-bv-phone-country="US"
-								data-bv-phone-message="Please enter a valid phone number."
-								data-bv-notempty="true"
-								data-bv-notempty-message="Please enter a valid phone number.">
+							<input type="tel" class="form-control" id="edit_user_phone" name="edit_user_phone" value="{{ phone_number }}">
 						</div>
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
-						<button type="submit" class="btn btn-success">Submit</button>
+						<button type="button" id="edit_user_submit" class="btn btn-success">Submit</button>
 					</div>
 				</form>
 			</div>
@@ -48,7 +41,7 @@
 
     <div class="page-header">
         <h1>Profile</h1>
-        <h5 onclick="edit()">Edit</h5>
+        <h5 id="edit_user_button">Edit</h5>
     </div>
     <div class="col-sm-3">
         <div class="list-group">
@@ -87,84 +80,75 @@
 			</div>
 		</div><!--/.col-md-6-->
 	</div><!--/.container-->
-
-    <!-- Specify symbols to display for validation.-->
-    <form role="form" action="javascript:process_form()" id="edit_form"
-        data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
-        data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
-        data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
-        data-bv-onerror="on_form_invalid(this,event)"
-        data-bv-onsuccess="on_form_valid(this,event)">
-        <div class="form-group">
-            <div class="col-sm-4">
-                <div class="list-group">
-                    <a href="#" class="list-group-item">
-                        <label>Name: </label>
-                        <input type="text" id="user_name" name="name" value={{ name }}>
-                    </a>
-                    <a href="#" class="list-group-item">
-                        <label>Phone Number: </label>
-                        <input type="tel" id="user_phone" name="phone"
-                            value={{ phone_number }}
-                            data-bv-phone
-                            data-bv-phone-country="US"
-                            data-bv-phone-message="Please enter a valid phone number."
-                            data-bv-notempty="true"
-                            data-bv-notempty-message="Please enter a valid phone number.">
-                    </a>
-                    <a href="#" class="list-group-item">
-                        <button type="submit" class="btn btn-primary">Submit</button>
-                    </a>
-                </div>
-            </div><!-- /.col-sm-4 -->
-        </div>
-    </form>
-
-
-
-
 {% endblock container %}
 
 {% block javascript %}
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="../js/bootstrap.min.js"></script>
+
     <script src="../js/bootstrapValidator.min.js"></script>
 
     <script>
-		/*
-        function edit() {
-            x = document.getElementById("edit_form");
-            x.style.display = 'block';
-        }
-        */
-
-		function edit() {
-			$("#edit_user_modal").modal();
-		}
-
-    </script>
-
-    <script>
-        // initializes Bootstrap Validator plugin
+        // initializes Bootstrap Validator plugin and other event handlers
         $(document).ready(function() {
-			$('#edit_user_form').bootstrapValidator();
-			$("#edit_user_form").submit(function() {
+			$("#edit_user_submit").click(function() {
 				update_user();
+			});
+
+			$("#edit_user_button").click(function() {
+				$("#edit_user_modal").modal();
+			});
+
+			$('#edit_user_form').bootstrapValidator({
+				feedbackIcons: {
+					valid: 'glyphicon glyphicon-ok',
+					invalid: 'glyphicon glyphicon-remove',
+					validating: 'glyphicon glyphicon-refresh'
+				},
+				submitButtons: 'button[class="btn-success"]',
+				fields: {
+					edit_user_name: {
+						validators: {
+							notEmpty: {
+								message: "Please enter your email address."
+							},
+							emailAddress: {
+								message: "Please enter a valid email address."
+							}
+						}
+					},
+					edit_user_phone: {
+						validators: {
+							notEmpty: {
+								message: "Please enter your phone number."
+							},
+							phone: {
+								message: "Please enter a valid phone number.",
+								country: "US"
+							}
+						}
+					}
+				}
 			});
         });
 
 		function update_user() {
-			$("#edit_user_modal").hide();
+			$("#edit_user_modal").modal('hide');
+
+			var name = $("#edit_user_name").val();
+			var phone = $("#edit_user_phone").val();
+
 			var post_data = {
-				'name': $("#edit_user_name").val(),
-				'phone_number': $("#edit_user_phone").val()
+				'name': name,
+				'phone_number': phone
 			};
 
 			$.post("/user/dash/edit", post_data, function(data) {
-				$("#name").val($("#edit_user_name"));
-				$("#phone_number").val($("#edit_user_phone"));
+				$("#name").text(name);
+				$("#phone_number").text("Phone Number: " + phone);
 			});
 		}
   </script>
