@@ -131,13 +131,15 @@ class Dash(webapp2.RequestHandler):
 
         active_users = User.get_active_users()
 
+        verified = 'ok' if user.verified else 'remove'
+
         template = JINJA_ENVIRONMENT.get_template("user/dash.html")
         self.response.write(template.render( {
                 'name' : user.name,
                 'is_active' : 'Active' if user.is_active else 'Inactive',
                 'user_type' : string.capitalize(user.user_type_str()),
                 'phone_number' : user.phone_number,
-                'verified' : 'Yes' if user.verified else 'No',
+                'verified' : verified,
                 'logout_url' : users.create_logout_url(self.request.uri),
                 'active_users': active_users,
                 'active_user_count': active_users.count(),
