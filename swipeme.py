@@ -4,6 +4,7 @@ import webapp2
 import jinja2
 import random
 import string
+import json
 
 # SwipeMe global settings
 import swipeme_globals
@@ -87,6 +88,9 @@ class User(ndb.Model):
 
         return minimum
 
+    def regenerate_verification_hash(self):
+        self.verification_hash = ''.join(random.choice('0123456789ABCDEF') for i in range(5))
+        self.put()
 
     # Returns a string representation of the user's
     # type
@@ -158,8 +162,33 @@ class Edit(webapp2.RequestHandler):
         if phone_number and re.compile("^[0-9]{10}$").match(phone_number):
             user.phone_number = phone_number
             user.verified = False
+            SMSHandler.send_new_verification_message(user)
 
         user.put()
+
+class Verify(webapp2.RequestHandler):
+    def post(self):
+        self.response.headers['Content-Type'] = 'application/json'
+        user = _get_current_user()
+
+        success = False
+
+        if user.verified:
+            success = True
+        else:
+            verification_code = self.request.get('verification_code')
+
+            if user.verification_hash == verification_code:
+                user.verified = True
+                user.put()
+
+                success = True
+
+        to_return = {
+                'verified': success,
+        }
+
+        self.response.out.write(json.dumps(to_return))
 
 # Display registration page for buyers and sellers
 class Register(webapp2.RequestHandler):
@@ -182,11 +211,11 @@ class AddUser(webapp2.RequestHandler):
         new_user.user_type = int(self.request.get('user_type'))
         new_user.phone_number = self.request.get('phone_number')
         new_user.asking_price = int(self.request.get('asking_price'))
-        new_user.verification_hash = ''.join(random.choice('0123456789ABCDEF') for i in range(5))
 
         new_user.put()
 
-        SMSHandler.send_message(new_user.phone_number, "Please enter the code " + new_user.verification_hash + " to verify your phone number.")
+        SMSHandler.send_new_verification_message(new_user)
+        
 
 class VerifyPhone(webapp2.RequestHandler):
     def post(self):
@@ -217,6 +246,11 @@ class SMSHandler(webapp2.RequestHandler):
     @staticmethod
     def send_message(to, body):
         taskqueue.add(url='/smsworker', params={'to': to, 'body': body})
+
+    @staticmethod
+    def send_new_verification_message(user):
+        user.regenerate_verification_hash()
+        SMSHandler.send_message(user.phone_number, "Please enter the code " + user.verification_hash + " to verify your phone number.")
 
 class SMSWorker(webapp2.RequestHandler):
     client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)

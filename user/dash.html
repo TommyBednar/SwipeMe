@@ -31,8 +31,34 @@
 						</div>
 					</div>
 					<div class="modal-footer">
-						<button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
-						<button type="button" id="edit_user_submit" class="btn btn-success">Submit</button>
+						<button type="button" class="btn btn-danger" data-dismiss="modal">Cancel</button>
+						<button type="button" id="edit_user_submit" class="btn btn-success">Save changes</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="verify_user_modal" tabindex="-1" role="dialog" aria-labelledby="verify_user_modal_title">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<form role="form" id="verify_user_form">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal">
+							<span aria-hidden="true">&times;</span>
+							<span class="sr-only">Close</span>
+						</button>
+						<h4 class="modal-title" id="verify_user_modal_title">Verify User</h4>
+					</div>
+					<div class="modal-body">
+						<div class="form-group">
+							<label for="verify_user_verification_code">Verification Code:</label>
+							<input type="text" class="form-control" id="verify_user_verification_code" name="verify_user_verification_code">
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-danger" data-dismiss="modal">Cancel</button>
+						<button type="button" id="verify_user_submit" class="btn btn-success">Verify</button>
 					</div>
 				</form>
 			</div>
@@ -57,10 +83,13 @@
 				<td class="text-right"><strong>Phone number:</strong></td><td id="phone_number">{{ phone_number }}</td>
 			</tr>
 			<tr>
-                <td class="text-right"><strong>Verified:</strong></td><td><span class="glyphicon glyphicon-{{ verified }}"></span></td>
+                <td class="text-right"><strong>Verified:</strong></td><td><span id="verified" class="glyphicon glyphicon-{{ verified }}"></span></td>
 			</tr>
 		</table>
 		<div class="form-group">
+			{% if verified == 'remove' %}
+			<button class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
+			{% endif %}
 			<button class="btn btn-block btn-primary" id="edit_user_button">Edit user</button>
 			<button class="btn btn-block btn-danger" id="logout_user">Logout</button>
 		</div>
@@ -121,7 +150,12 @@
         // initializes Bootstrap Validator plugin and other event handlers
         $(document).ready(function() {
 			$("#edit_user_submit").click(function() {
+			    $("#verify_user_verification_code").val('');
 				update_user();
+			});
+
+			$("#verify_user_button").click(function() {
+				$("#verify_user_modal").modal();
 			});
 
 			$("#edit_user_button").click(function() {
@@ -176,8 +210,26 @@
 			$.post("/user/dash/edit", post_data, function(data) {
 				$("#name").text(name);
 				$("#phone_number").text(phone);
+				$("#verified").removeClass("glyphicon-ok").addClass("glyphicon-remove");
 			});
 		}
+
+        function verify_user() {
+            $("#verify_user_modal").modal('hide');
+
+            var verification_code = $("#verify_user_verification_code").val();
+            var post_data = {
+                'verification_code': verification_code
+            };
+
+            $.post("/user/dash/verify", post_data, function(data) {
+                if(data.verified) {
+                    // Deal with valid verification
+                } else {
+                    // Deal with invalid code
+                }
+            });
+        }
   </script>
 
 {% endblock javascript %}
