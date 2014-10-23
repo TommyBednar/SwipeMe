@@ -6,6 +6,7 @@ import logging
 import msg
 import string
 import time
+import json
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -28,6 +29,14 @@ class Buyer(ndb.Model):
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
     # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
+
+    status_to_str = {
+        INACTIVE:'Inactive',
+        MATCHING:'Matching',
+        DECIDING:'Deciding',
+        WAITING:'Waiting',
+    }
+
     #Delayed requests will only execute if the counter at the time of execution
     #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
@@ -211,6 +220,14 @@ class Seller(ndb.Model):
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, LOCKED, MATCHED = range(1,5)
+
+    status_to_str = {
+        UNAVAILABLE:'Unavailable',
+        AVAILABLE:'Available',
+        LOCKED:'Locked',
+        MATCHED:'Matched',
+    }
+
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
     #The amount that this seller will charge
@@ -372,6 +389,10 @@ class Seller(ndb.Model):
     MATCHED:{'no':'depart'}
     }
 
+class MsgTracker(ndb.Model):
+    msg = ndb.StringProperty()
+    status = ndb.StringProperty()
+
 class Customer(ndb.Model):
     
     # 1 == buyer. 2 == seller
@@ -400,6 +421,8 @@ class Customer(ndb.Model):
     #Key of other customer in transaction
     partner_key = ndb.KeyProperty(kind='Customer')
 
+    #List of text messages. Used for debugging
+    message_list = ndb.StructuredProperty(MsgTracker, repeated=True)
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
@@ -419,6 +442,10 @@ class Customer(ndb.Model):
             return "buyer"
         else:
             return "seller"
+
+    def get_status_str(self):
+        props = self.props()
+        return props.status_to_str[props.status]
 
     # Return Customer with given google user information
     # Return None if no such Customer found
@@ -466,6 +493,8 @@ class Customer(ndb.Model):
         #Stubbed implementation
         if message:
             logging.info(self.phone_number + message)
+            self.message_list.append(message)
+            self.put()
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
@@ -571,6 +600,72 @@ class MatchWorker(webapp2.RequestHandler):
         #If no seller is found, report failure to the buyer
         else:
             buyer.execute_request('fail')
+
+class SMSMockerPage(webapp2.RequestHandler):
+    def get(self):
+        template = JINJA_ENVIRONMENT.get_template("sms.html")
+        self.response.write(template.render())
+
+class SMSMocker(webapp2.RequestHandler):  
+    
+    #define keys that will specify the buyer and seller
+    buyer_key = ndb.Key(Customer,'3304029937')
+    seller_key = ndb.Key(Customer,'4128675309')
+    buyer_list = []
+    seller_list = []
+
+    def get(self):
+        jdump = json.dumps({'buyer_list': self.buyer_list, 'seller_dict':self.seller_list })
+        self.response.out.write(jdump)
+
+    def delete(self):
+        buyer_key.delete()
+        seller_key.delete()
+        self.buyer_list = []
+        self.seller_list = []
+
+    def post(self):
+        sms = self.request.get('sms')
+        #Add text to the appropriate list with the current state
+        if self.request.get('customer_type') == 'buyer':
+            status_str = self.get_buyer().get_status_str()
+            self.buyer_list.append((sms,status_str))    
+        else:
+            status_str = self.get_seller().get_status_str()
+            self.seller_list.append((sms,status_str))
+
+
+    #I need to grab "the buyer" and "the seller"
+    #and be confident that these things exist.
+
+    #Buyer singleton
+    def get_buyer(self):
+        buyer = self.buyer_key.get()
+        if buyer:
+            return buyer
+        else:
+            self.make_buyer()
+            self.get_buyer()
+
+    #Seller singleton
+    def get_seller(self):
+        seller = self.seller_key.get()
+        if seller:
+            return seller
+        else:
+            self.make_seller()
+            self.get_seller()
+
+    def make_buyer(self):
+        buyer = Customer(key=self.buyer_key)
+        buyer.init_buyer()
+        buyer.put()
+
+    def make_seller(self):
+        seller = Customer(key=self.seller_key)
+        seller.init_seller(4)
+        seller.put()
+
 class TestHelpers(object):
     @staticmethod
     def make_seller():
@@ -682,6 +777,8 @@ app = webapp2.WSGIApplication([
     ('/q/match', MatchWorker),
     #('/test/seller', TestSeller),
     ('/test/match', TestMatch),
+    ('/mock', SMSMockerPage),
+    ('/mock/data', SMSMocker),
 ], debug=True)
 
 def main():
