@@ -116,19 +116,6 @@ class LandingPage(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template("index.html")
         self.response.write(template.render())
 
-class Home(webapp2.RequestHandler):
-    def get(self):
-        user = _get_current_user()
-
-        self.response.write('<html><body>')
-        self.response.write(user.user_type_str() + "<br>")
-        self.response.write('<br>')
-        if not user.verified:
-            self.response.write("<form method='POST' action='/user/verify'><input type='text' name='verify_hash' placeholder='Verification code'><input type='submit' value='Verify'></form><br>")
-        self.response.write(user.phone_number)
-        self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
-        self.response.write('</body></html>')
-
 class Dash(webapp2.RequestHandler):
     def get(self):
         user = _get_current_user()
@@ -144,6 +131,7 @@ class Dash(webapp2.RequestHandler):
                 'user_type' : string.capitalize(user.user_type_str()),
                 'phone_number' : user.phone_number,
                 'verified' : verified,
+                'display_verification_button': user.verified,
                 'logout_url' : users.create_logout_url(self.request.uri),
                 'active_users': active_users,
                 'active_user_count': active_users.count(),
@@ -152,19 +140,31 @@ class Dash(webapp2.RequestHandler):
 
 class Edit(webapp2.RequestHandler):
     def post(self):
+        self.response.headers['Content-Type'] = 'application/json'
+        updated_phone = False
+
         user = _get_current_user()
+
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
         
         if name:
             user.name = name
 
-        if phone_number and re.compile("^[0-9]{10}$").match(phone_number):
+        if phone_number and re.compile("^[0-9]{10}$").match(phone_number) and phone_number != user.phone_number:
+            updated_phone = True
             user.phone_number = phone_number
             user.verified = False
             SMSHandler.send_new_verification_message(user)
 
         user.put()
+
+        return_values = {
+            'updated_phone': updated_phone,
+        }
+
+        self.response.out.write(json.dumps(return_values))
+
 
 class Verify(webapp2.RequestHandler):
     def post(self):
@@ -178,7 +178,7 @@ class Verify(webapp2.RequestHandler):
         else:
             verification_code = self.request.get('verification_code')
 
-            if user.verification_hash == verification_code:
+            if user.verification_hash == verification_code.strip().upper():
                 user.verified = True
                 user.put()
 
@@ -272,9 +272,9 @@ app = webapp2.WSGIApplication([
     ('/user/add_user', AddUser),
     ('/user/register', Register),
     ('/user/verify', VerifyPhone),
-    ('/user/home', Home),
     ('/user/dash', Dash),
     ('/user/dash/edit', Edit),
+    ('/user/dash/verify', Verify),
     ('/sms', SMSHandler),
     ('/smsworker', SMSWorker),
 ], debug=True)

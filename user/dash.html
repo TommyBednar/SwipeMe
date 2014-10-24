@@ -23,16 +23,16 @@
 					<div class="modal-body">
 						<div class="form-group">
 							<label for="user_name">Name: </label>
-							<input type="text" class="form-control" id="edit_user_name" name="edit_user_name" value="{{ name }}">
+							<input type="text" class="form-control" id="edit_user_name" name="edit_user_name" value="{{ name }}" placeholder="John Smith">
 						</div>
 						<div class="form-group">
 							<label for="user_phone">Phone: </label>
-							<input type="tel" class="form-control" id="edit_user_phone" name="edit_user_phone" value="{{ phone_number }}" placeholder="4405551234">
+                            <input type="text" class="form-control" id="edit_user_phone" name="edit_user_phone" value="{{ phone_number }}" placeholder="4405551234">
 						</div>
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-danger" data-dismiss="modal">Cancel</button>
-						<button type="button" id="edit_user_submit" class="btn btn-success">Save changes</button>
+						<button type="submit" id="edit_user_submit" class="btn btn-success">Save changes</button>
 					</div>
 				</form>
 			</div>
@@ -87,9 +87,7 @@
 			</tr>
 		</table>
 		<div class="form-group">
-			{% if verified == 'remove' %}
-			<button class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
-			{% endif %}
+			<button style="display: none;" class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
 			<button class="btn btn-block btn-primary" id="edit_user_button">Edit user</button>
 			<button class="btn btn-block btn-danger" id="logout_user">Logout</button>
 		</div>
@@ -150,13 +148,32 @@
         // initializes Bootstrap Validator plugin and other event handlers
         $(document).ready(function() {
 			$("#edit_user_submit").click(function() {
-			    $("#verify_user_verification_code").val('');
 				update_user();
+				// Return false to disable ACTUAL submit
+				// Note that we are using a submit button so that bootstrapValidator will disable
+				// it if invalid.  May try to alter that in the future
+				return false;
 			});
 
 			$("#verify_user_button").click(function() {
 				$("#verify_user_modal").modal();
 			});
+
+            $("#verify_user_submit").click(function() {
+                verify_user();
+                return false;
+            });
+
+            $("#edit_user_modal").on("hidden.bs.modal", function() {
+                // TODO: Doesn't work for absolutely no reason.  Does it's purpose in the console no problem.
+                $("#edit_user_form").bootstrapValidator('resetForm', true);
+
+                var uname = $("#name").text();
+                var phone = $("#phone_number").text();
+
+			    $("#edit_user_name").val(uname);
+                $("#edit_user_phone").val(phone);
+            });
 
 			$("#edit_user_button").click(function() {
 				$("#edit_user_modal").modal();
@@ -166,13 +183,16 @@
 				window.location.href = "{{ logout_url }}";
 			});
 
+            if('{{ display_verification_button }}' == 'False')
+                $("#verify_user_button").show();
+
 			$('#edit_user_form').bootstrapValidator({
 				feedbackIcons: {
 					valid: 'glyphicon glyphicon-ok',
 					invalid: 'glyphicon glyphicon-remove',
 					validating: 'glyphicon glyphicon-refresh'
 				},
-				submitButtons: 'button[class="btn-success"]',
+				submitButtons: 'button[type="submit"]',
 				fields: {
 					edit_user_name: {
 						validators: {
@@ -197,10 +217,10 @@
         });
 
 		function update_user() {
-			$("#edit_user_modal").modal('hide');
-
 			var name = $("#edit_user_name").val();
 			var phone = $("#edit_user_phone").val();
+
+			$("#edit_user_modal").modal('hide');
 
 			var post_data = {
 				'name': name,
@@ -210,7 +230,11 @@
 			$.post("/user/dash/edit", post_data, function(data) {
 				$("#name").text(name);
 				$("#phone_number").text(phone);
-				$("#verified").removeClass("glyphicon-ok").addClass("glyphicon-remove");
+
+                if(data.updated_phone) {
+                    $("#verified").removeClass("glyphicon-ok").addClass("glyphicon-remove");
+                    $("#verify_user_button").show();
+                }
 			});
 		}
 
@@ -224,9 +248,11 @@
 
             $.post("/user/dash/verify", post_data, function(data) {
                 if(data.verified) {
-                    // Deal with valid verification
+                    $("#verified").addClass("glyphicon-ok").removeClass("glyphicon-remove");
+                    $("#verify_user_button").hide();
+                    // Display message
                 } else {
-                    // Deal with invalid code
+                    // Display failure message
                 }
             });
         }
