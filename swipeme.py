@@ -389,10 +389,6 @@ class Seller(ndb.Model):
     MATCHED:{'no':'depart'}
     }
 
-class MsgTracker(ndb.Model):
-    msg = ndb.StringProperty()
-    status = ndb.StringProperty()
-
 class Customer(ndb.Model):
     
     # 1 == buyer. 2 == seller
@@ -421,8 +417,6 @@ class Customer(ndb.Model):
     #Key of other customer in transaction
     partner_key = ndb.KeyProperty(kind='Customer')
 
-    #List of text messages. Used for debugging
-    message_list = ndb.StructuredProperty(MsgTracker, repeated=True)
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
@@ -493,8 +487,13 @@ class Customer(ndb.Model):
         #Stubbed implementation
         if message:
             logging.info(self.phone_number + message)
-            self.message_list.append(message)
             self.put()
+
+        #Debug code for SMS mocker
+        if self.key == MockData.buyer_key:
+            MockData.receive_SMS(msg=message,customer_type='buyer')
+        elif self.key == MockData.seller_key:
+            MockData.receive_SMS(msg=message,customer_type='seller')
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
@@ -601,141 +600,108 @@ class MatchWorker(webapp2.RequestHandler):
         else:
             buyer.execute_request('fail')
 
-class SMSMockerPage(webapp2.RequestHandler):
-    def get(self):
-        template = JINJA_ENVIRONMENT.get_template("sms.html")
-        self.response.write(template.render())
-
-class SMSMocker(webapp2.RequestHandler):  
-    
+class MockData(object):
     #define keys that will specify the buyer and seller
     buyer_key = ndb.Key(Customer,'3304029937')
     seller_key = ndb.Key(Customer,'4128675309')
     buyer_list = []
     seller_list = []
 
-    def get(self):
-        jdump = json.dumps({'buyer_list': self.buyer_list, 'seller_dict':self.seller_list })
-        self.response.out.write(jdump)
-
-    def delete(self):
-        buyer_key.delete()
-        seller_key.delete()
-        self.buyer_list = []
-        self.seller_list = []
-
-    def post(self):
-        sms = self.request.get('sms')
-        #Add text to the appropriate list with the current state
-        if self.request.get('customer_type') == 'buyer':
-            status_str = self.get_buyer().get_status_str()
-            self.buyer_list.append((sms,status_str))    
-        else:
-            status_str = self.get_seller().get_status_str()
-            self.seller_list.append((sms,status_str))
-
-
-    #I need to grab "the buyer" and "the seller"
-    #and be confident that these things exist.
+    @staticmethod
+    def receive_SMS(msg,customer_type):
+        msg = 'SwipeMe: ' + msg
+        if customer_type == 'buyer':
+            status_str = MockData.get_buyer().get_status_str()
+            MockData.buyer_list.append((msg,status_str))
+        elif customer_type == 'seller':
+            status_str = MockData.get_seller().get_status_str()
+            MockData.seller_list.append((msg,status_str))
 
     #Buyer singleton
-    def get_buyer(self):
-        buyer = self.buyer_key.get()
+    #Abstracts away whether or not the buyer currently exists
+    @staticmethod
+    def get_buyer():
+        buyer = MockData.buyer_key.get()
         if buyer:
             return buyer
         else:
-            self.make_buyer()
-            self.get_buyer()
+            MockData.make_buyer()
+            MockData.get_buyer()
 
     #Seller singleton
-    def get_seller(self):
-        seller = self.seller_key.get()
+    #Abstracts away whether or not the seller currently exists
+    @staticmethod
+    def get_seller():
+        seller = MockData.seller_key.get()
         if seller:
             return seller
         else:
-            self.make_seller()
-            self.get_seller()
+            MockData.make_seller()
+            MockData.get_seller()
 
-    def make_buyer(self):
-        buyer = Customer(key=self.buyer_key)
-        buyer.init_buyer()
-        buyer.put()
-
-    def make_seller(self):
-        seller = Customer(key=self.seller_key)
-        seller.init_seller(4)
-        seller.put()
-
-class TestHelpers(object):
-    @staticmethod
-    def make_seller():
-        phone = '3304029937'
-        seller_key = Customer.create_key(phone)
-        seller = Customer(key=seller_key)
-        seller.phone_number = phone
-      
-        seller.init_seller(5)
-        seller.put()
-
-        return seller
-
+    #Make buyer with minimum necessary attributes
     @staticmethod
     def make_buyer():
-        phone = '4128675309'
-        buyer_key = Customer.create_key(phone)
-        buyer = Customer(key=buyer_key)
-        buyer.phone_number = phone
-      
+        buyer = Customer(key=MockData.buyer_key)
         buyer.init_buyer()
+        buyer.phone_number = '3304029937'
         buyer.put()
 
-        return buyer
+    #Make seller with minimum necessary attributes
+    @staticmethod
+    def make_seller():
+        seller = Customer(key=MockData.seller_key)
+        seller.init_seller(4)
+        seller.phone_number = '4128675309'
+        seller.put()
 
-class TestMatch(webapp2.RequestHandler):
+
+class SMSMockerPage(webapp2.RequestHandler):
     def get(self):
-        #Setup seller
-        seller = TestHelpers.make_seller()
-        #Setup buyer
-        buyer = TestHelpers.make_buyer()
-        
-        seller.execute_request('enter')
-        buyer.execute_request('request')
-        seller.execute_request('lock', partner_key=buyer.key)
-        buyer.execute_request('match', partner_key=seller.key)
-        buyer.execute_request('accept')
-        seller.execute_request('match')  
-        buyer.execute_request('susccess')
-        seller.execute_request('transact')  
+        template = JINJA_ENVIRONMENT.get_template("sms.html")
+        self.response.write(template.render())
 
-        '''
-        #Seller checks in
-        seller.process_SMS('Market')
-        #Buyer requests swipe
-        buyer.process_SMS('Market')
-        #Wait for 2 seconds
-        time.sleep(15)
-        #buyer accepts price
-        buyer.process_SMS('yes')
-        #wait for 2 seconds        
-        time.sleep(5)
-        #buyer says that seller came
-        buyer.process_SMS('yes')
-        '''
 
-class TestSeller(webapp2.RequestHandler):
+
+class SMSMocker(webapp2.RequestHandler):  
+    
+    #Handle JSON request for record of all state tranitions
+    #That the buyer and seller have undergone
     def get(self):
-        #Setup seller
-        seller = TestHelpers.make_seller()
+        jdump = json.dumps({'buyer_list': MockData.buyer_list, 'seller_list':MockData.seller_list })
+        logging.info(jdump)
+        self.response.out.write(jdump)
 
-        #Make available
-        seller.process_SMS('Market')
-        #Make unavailable
-        seller.process_SMS('bye')
-        #Try bad input
-        seller.process_SMS('Crunchatize me, Captain')
+    #Handle request to refresh the buyer and seller logs
+    #by deleting the buyer and seller entities
+    def delete(self):
+        MockData.buyer_key.delete()
+        MockData.seller_key.delete()
+        MockData.buyer_list = []
+        MockData.seller_list = []
 
-        #Teardown
-        seller.key.delete()
+    #Handle mocked SMS sent by the buyer or the seller
+    def post(self):
+        data = json.loads(self.request.body)
+        sms = data['sms']
+        logging.info(sms)
+        customer_type = data['customer_type']
+        logging.info(customer_type)
+        #Add text to the appropriate list with the current state
+        if customer_type == 'buyer':
+            #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
+            logging.info(type(MockData.get_buyer()))
+            MockData.get_buyer().process_SMS(sms)
+            sms = 'Buyer: ' + sms 
+            status_str = MockData.get_buyer().get_status_str()
+            MockData.buyer_list.append((sms,status_str))    
+        elif customer_type == 'seller':
+            #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
+            logging.info(type(MockData.get_seller()))
+            MockData.get_seller().process_SMS(sms)
+            sms = 'Seller: ' + sms 
+            status_str = MockData.get_seller().get_status_str()
+            MockData.seller_list.append((sms,status_str))
 
 # Using data from registration, create new Customer and put into datastore
 # Expected request parameters:
@@ -775,8 +741,6 @@ app = webapp2.WSGIApplication([
     ('/customer/home', Home),
     ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
-    #('/test/seller', TestSeller),
-    ('/test/match', TestMatch),
     ('/mock', SMSMockerPage),
     ('/mock/data', SMSMocker),
 ], debug=True)

@@ -20,16 +20,16 @@
 		<form role="form" action="javascript:refresh()">
 			<button type="submit" class="btn btn-info">Refresh</button>
 		</form>
-		<form role="form" method="delete" action="/mock/data">
+		<form role="form" action="javascript:del()">
 			<button type="submit" class="btn btn-danger">Reset</button>
 		</form>
 	<div class="row" id="chat-boxes">
 		<div class="col-md-6">
 			<h2>Buyer's Texts</h2>
-			<form role="form" method="post" action="javascript:refresh()">
+			<form role="form" action="javascript:send('buyer')">
 				<div class="form-group">
 					<input type="hidden" name="customer_type" value="buyer">
-					<input type="text" name="sms" class="form-control" placeholder="Send an SMS">
+					<input type="text" name="sms" class="form-control" placeholder="Send an SMS" id="buyer_sms">
 				</div>
 				<button type="submit" class="btn btn-default">Send</button>
 			</form>
@@ -38,12 +38,17 @@
 			</div>
 		</div>
 		<div class="col-md-6">
-			<form role="form" method="post" action="/mock/data">
+			<h2>Seller's Texts</h2>
+			<form role="form" action="javascript:send('seller')">
 				<div class="form-group">
-					<input type="text" class="form-control" placeholder="Send an SMS">
+					<input type="hidden" name="customer_type" value="seller">
+					<input type="text" name="sms" class="form-control" placeholder="Send an SMS" id="seller_sms">
 				</div>
 				<button type="submit" class="btn btn-default">Send</button>
 			</form>
+			<br>
+			<div class="messages" id="seller_stream">
+			</div>
 		</div>
 	</div>
 {% endblock container %}
