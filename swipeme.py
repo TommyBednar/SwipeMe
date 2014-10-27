@@ -49,8 +49,6 @@ class Buyer(ndb.Model):
         return self.parent_key.get()
 
     def get_partner(self):
-        logging.info(self.get_parent())
-        logging.info(self.get_parent().partner_key)
         return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
@@ -96,7 +94,6 @@ class Buyer(ndb.Model):
         #if the price is acceptable
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
-        logging.info(partner.key)
         self.set_partner_key(partner.key)
 
         price = partner.props().asking_price
@@ -135,8 +132,9 @@ class Buyer(ndb.Model):
         #Then free up the seller and deactivate
         #the buyer
         self.status = Buyer.INACTIVE
-        self.set_partner_key(None)
         self.get_partner().enqueue_trans('unlock',0)
+        self.set_partner_key(None)
+        
 
         return msg.decline
 
@@ -176,16 +174,18 @@ class Buyer(ndb.Model):
         self.get_partner().enqueue_trans('transact',0)
         self.set_partner_key(None)
 
-        return None
+        return msg.success
 
     @state_trans
     def on_retry(self):
-        assert self.status == Buyer.DECIDING
+        assert self.status == Buyer.DECIDING or self.status == Buyer.WAITING
 
         #If the seller leaves while the buyer is deciding,
         #let the buyer know and retry the matching process
         self.status = Buyer.MATCHING
         self.find_match()
+
+        return msg.retry
 
     #For each status, mapping from requests to operations
     transitions = {
@@ -288,11 +288,12 @@ class Seller(ndb.Model):
         #If the seller leaves when a buyer
         #has been matched with the seller,
         #let the buyer know and try to find another match
-        self.status = Seller.UNAVAILABLE
+        
         if self.status == Seller.LOCKED or self.status == Seller.MATCHED:
             self.get_partner().enqueue_trans('retry', 0)
             self.set_partner_key(None)
 
+        self.status = Seller.UNAVAILABLE
         return msg.depart
 
     @state_trans
@@ -372,6 +373,7 @@ class Seller(ndb.Model):
     LOCKED:{
     'match': on_match,
     'depart': on_depart,
+    'unlock': on_unlock,
     },
     MATCHED:{
     'noshow':on_noshow,
@@ -497,10 +499,6 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        if request_str == 'match':
-            logging.info(possible_transitions)
-            logging.info(self)
-            logging.info(props)
         message = possible_transitions[request_str](props, **kwargs)
 
         self.send_message(message)
@@ -572,7 +570,11 @@ class TransitionWorker(webapp2.RequestHandler):
         #Only execute the request if the seller or buyer 
         #   is still in the same state as when it was issued
         props = cust.props()
-
+        #Debug
+        logging.info(props)
+        logging.info(request_str)
+        logging.info(string.atoi(self.request.get('counter')))
+        #End debug
         if props.counter == string.atoi(self.request.get('counter')):
             cust.execute_request(request_str)
 
@@ -668,10 +670,25 @@ class SMSMocker(webapp2.RequestHandler):
     #Handle request to refresh the buyer and seller logs
     #by deleting the buyer and seller entities
     def delete(self):
-        MockData.buyer_key.delete()
-        MockData.seller_key.delete()
+
+        #Delete the buyer and the buyer properties
+        buyer = MockData.buyer_key.get()
+        if buyer:
+            buyer.buyer_props.delete()
+            buyer.key.delete()
+
+        #Delete the seller and the seller properties
+        seller = MockData.seller_key.get()
+        if seller:
+            seller.seller_props.delete()
+            seller.key.delete()
+
+        #Clear the list of state transitions and texts
         MockData.buyer_list = []
         MockData.seller_list = []
+
+        q = Queue(name='delay-queue')
+        q.purge()
 
     #Handle mocked SMS sent by the buyer or the seller
     def post(self):
@@ -681,14 +698,14 @@ class SMSMocker(webapp2.RequestHandler):
         #Add text to the appropriate list with the current state
         if customer_type == 'buyer':
             #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
-            logging.info(type(MockData.get_buyer()))
+            foo = type(MockData.get_buyer())
             MockData.get_buyer().process_SMS(sms)
             sms = 'Buyer: ' + sms 
             status_str = MockData.get_buyer().get_status_str()
             MockData.buyer_list.append((sms,status_str))    
         elif customer_type == 'seller':
             #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
-            logging.info(type(MockData.get_seller()))
+            bar = type(MockData.get_seller())
             MockData.get_seller().process_SMS(sms)
             sms = 'Seller: ' + sms 
             status_str = MockData.get_seller().get_status_str()
