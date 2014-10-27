@@ -5,6 +5,8 @@ import urllib2
 import logging
 import msg
 import string
+import time
+import json
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -27,6 +29,14 @@ class Buyer(ndb.Model):
     INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
     # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
+
+    status_to_str = {
+        INACTIVE:'Inactive',
+        MATCHING:'Matching',
+        DECIDING:'Deciding',
+        WAITING:'Waiting',
+    }
+
     #Delayed requests will only execute if the counter at the time of execution
     #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
@@ -39,14 +49,14 @@ class Buyer(ndb.Model):
         return self.parent_key.get()
 
     def get_partner(self):
-        self.get_parent().partner_key.get()
+        return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
         self.get_parent().partner_key = new_key
 
     def find_match(self):
-        params = {'cust_key':self.key.urlsafe()}
-        taskqueue.add(url="/q/match", params=params)
+        params = {'cust_key':self.parent_key.urlsafe()}
+        taskqueue.add(queue_name='delay-queue', url="/q/match", params=params)
 
     '''State transition decorator'''
     #In every state transition method,
@@ -77,16 +87,17 @@ class Buyer(ndb.Model):
 
     @state_trans
     def on_match(self, **kwargs):
-        assert partner_key in kwargs
+        assert 'partner_key' in kwargs
         assert self.status == Buyer.MATCHING
 
         #If a seller is found, ask the buyer
         #if the price is acceptable
         self.status = Buyer.DECIDING
-        self.set_partner_key = kwargs[partner_key]
+        partner = kwargs['partner_key'].get()
+        self.set_partner_key(partner.key)
 
-        price = partner_key.get().props().asking_price
-        return msg.decide_before_price + str(kwargs[price]) + msg.decide_after_price
+        price = partner.props().asking_price
+        return msg.decide_before_price + str(price) + msg.decide_after_price
 
     @state_trans
     def on_fail(self):
@@ -121,8 +132,9 @@ class Buyer(ndb.Model):
         #Then free up the seller and deactivate
         #the buyer
         self.status = Buyer.INACTIVE
-        self.set_partner_key(None)
         self.get_partner().enqueue_trans('unlock',0)
+        self.set_partner_key(None)
+        
 
         return msg.decline
 
@@ -152,7 +164,6 @@ class Buyer(ndb.Model):
 
         return msg.complain
 
-    
     @state_trans
     def on_success(self):
         assert self.status == Buyer.WAITING
@@ -160,19 +171,21 @@ class Buyer(ndb.Model):
         #If the transaction occured, deactivate the buyer
         #And perform end-of-transaction code on the seller
         self.status = Buyer.INACTIVE
-        self.set_partner_key(None)
         self.get_partner().enqueue_trans('transact',0)
+        self.set_partner_key(None)
 
-        return None
+        return msg.success
 
     @state_trans
     def on_retry(self):
-        assert self.status == Buyer.DECIDING
+        assert self.status == Buyer.DECIDING or self.status == Buyer.WAITING
 
         #If the seller leaves while the buyer is deciding,
         #let the buyer know and retry the matching process
         self.status = Buyer.MATCHING
         self.find_match()
+
+        return msg.retry
 
     #For each status, mapping from requests to operations
     transitions = {
@@ -191,7 +204,8 @@ class Buyer(ndb.Model):
     WAITING:{
     'complain':on_complain,
     'check':on_check,
-    'success':on_success},
+    'success':on_success,
+    'retry': on_retry,},
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
@@ -207,12 +221,22 @@ class Seller(ndb.Model):
 
     #Possible status values
     UNAVAILABLE, AVAILABLE, LOCKED, MATCHED = range(1,5)
+
+    status_to_str = {
+        UNAVAILABLE:'Unavailable',
+        AVAILABLE:'Available',
+        LOCKED:'Locked',
+        MATCHED:'Matched',
+    }
+
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
     #The amount that this seller will charge
     asking_price = ndb.IntegerProperty()
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
+    #The key of the buyer to which this seller has been matched
+
     #Delayed requests will only execute if the counter at the time of execution
     #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
@@ -253,22 +277,23 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        self.get_parent().enqueue_trans('timeout',10)
+        self.get_parent().enqueue_trans('timeout',1000)
         
         return msg.enter
 
     @state_trans
     def on_depart(self):
-        assert self.status != UNAVAILABLE
+        assert self.status != Seller.UNAVAILABLE
 
         #If the seller leaves when a buyer
         #has been matched with the seller,
         #let the buyer know and try to find another match
-        self.status = Seller.UNAVAILABLE
+        
         if self.status == Seller.LOCKED or self.status == Seller.MATCHED:
             self.get_partner().enqueue_trans('retry', 0)
             self.set_partner_key(None)
 
+        self.status = Seller.UNAVAILABLE
         return msg.depart
 
     @state_trans
@@ -282,13 +307,13 @@ class Seller(ndb.Model):
 
     @state_trans
     def on_lock(self, **kwargs):
-        assert partner_key in kwargs
-        assert self.status == AVAILABLE
+        assert 'partner_key' in kwargs
+        assert self.status == Seller.AVAILABLE
 
         #'lock' the seller while the buyer is considering the
         #seller's price to make sure the seller does not get double-booked
         self.status = Seller.LOCKED
-        self.set_partner_key(kwargs[partner_key])
+        self.set_partner_key(kwargs['partner_key'])
         
         return None
 
@@ -348,6 +373,7 @@ class Seller(ndb.Model):
     LOCKED:{
     'match': on_match,
     'depart': on_depart,
+    'unlock': on_unlock,
     },
     MATCHED:{
     'noshow':on_noshow,
@@ -383,10 +409,10 @@ class Customer(ndb.Model):
     phone_number = ndb.StringProperty()
 
     #Buyer-specific data
-    buyer_props = ndb.StructuredProperty(Buyer)
+    buyer_props = ndb.KeyProperty(kind='Buyer')
 
     #Seller-specific data
-    seller_props = ndb.StructuredProperty(Seller)
+    seller_props = ndb.KeyProperty(kind='Seller')
 
     #Key of other customer in transaction
     partner_key = ndb.KeyProperty(kind='Customer')
@@ -394,9 +420,9 @@ class Customer(ndb.Model):
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
-            return self.buyer_props
+            return self.buyer_props.get()
         elif self.customer_type == Customer.seller:
-            return self.seller_props
+            return self.seller_props.get()
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
@@ -410,6 +436,10 @@ class Customer(ndb.Model):
             return "buyer"
         else:
             return "seller"
+
+    def get_status_str(self):
+        props = self.props()
+        return props.status_to_str[props.status]
 
     # Return Customer with given google user information
     # Return None if no such Customer found
@@ -430,9 +460,8 @@ class Customer(ndb.Model):
         seller_props.status = Seller.UNAVAILABLE
         seller_props.counter = 0
         seller_props.parent_key = self.key
-        self.seller_props = seller_props
+        self.seller_props = seller_props.put()
 
-        seller_props.put()
         self.put()
 
     def init_buyer(self):
@@ -442,21 +471,26 @@ class Customer(ndb.Model):
         buyer_props.status = Buyer.INACTIVE
         buyer_props.counter = 0
         buyer_props.parent_key = self.key
-        self.buyer_props = buyer_props
+        self.buyer_props = buyer_props.put()
 
-        buyer_props.put()
         self.put()
 
     '''Methods to process and route SMS commands'''
 
     def enqueue_trans(self,request_str,delay):
         params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
-        taskqueue.add(queue_name='delay-queue', url="/q", params=params, countdown=delay)
+        taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,message):
         #Stubbed implementation
         if message:
-            logging.info(message)
+            self.put()
+
+        #Debug code for SMS mocker
+        if self.key == MockData.buyer_key:
+            MockData.receive_SMS(msg=message,customer_type='buyer')
+        elif self.key == MockData.seller_key:
+            MockData.receive_SMS(msg=message,customer_type='seller')
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
@@ -465,17 +499,16 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        message = possible_transitions[request_str](props)
+        message = possible_transitions[request_str](props, **kwargs)
 
-        self.send_message(message, **kwargs)
+        self.send_message(message)
 
-    def process_SMS_request(self,text):
+    def process_SMS(self,text):
         #Grab the first word of the SMS
         first_word = string.lower(text.split()[0])
-        
         props = self.props()
         if first_word not in props.valid_words[props.status]:
-            request_clarification()
+            self.request_clarification()
             return
 
         request_str = props.valid_words[props.status][first_word]
@@ -528,7 +561,6 @@ class Register(webapp2.RequestHandler):
 #                   'counter': the seller or buyer's counter at the time of enqueueing}
 class TransitionWorker(webapp2.RequestHandler):
     def post(self):
-        logging.info('In TransitionWorker')
         #Get the member
         cust_key = ndb.Key(urlsafe=self.request.get('key'))
         #Get the request string
@@ -538,11 +570,12 @@ class TransitionWorker(webapp2.RequestHandler):
         #Only execute the request if the seller or buyer 
         #   is still in the same state as when it was issued
         props = cust.props()
-        oth = string.atoi(self.request.get('counter'))
-        logging.info('props.counter is ' + str(props.counter) + ' but the payload counter is ' + str(oth))
-        #+ str(props.counter) + ' but the payload counter is ' + str(oth) 
+        #Debug
+        logging.info(props)
+        logging.info(request_str)
+        logging.info(string.atoi(self.request.get('counter')))
+        #End debug
         if props.counter == string.atoi(self.request.get('counter')):
-            logging.info('Trying to call customer')
             cust.execute_request(request_str)
 
 #Expected payload:  'cust_key': urlsafe key of customer who requested match
@@ -554,39 +587,129 @@ class MatchWorker(webapp2.RequestHandler):
 
         #If a seller is found, lock the seller
         #and let the buyer decide on the price
-        if seller_props:
-            seller = seller_props.get_parent()
+        if len(seller_props) == 1:
+            seller = seller_props[0].get_parent()
             seller.execute_request('lock', partner_key=buyer.key)
             buyer.execute_request('match', partner_key=seller.key)
         #If no seller is found, report failure to the buyer
         else:
             buyer.execute_request('fail')
 
+class MockData(object):
+    #define keys that will specify the buyer and seller
+    buyer_key = ndb.Key(Customer,'3304029937')
+    seller_key = ndb.Key(Customer,'4128675309')
+    buyer_list = []
+    seller_list = []
 
-class TestSeller(webapp2.RequestHandler):
+    @staticmethod
+    def receive_SMS(msg,customer_type):
+        if msg:
+            msg = 'SwipeMe: ' + msg
+        if customer_type == 'buyer':
+            status_str = MockData.get_buyer().get_status_str()
+            MockData.buyer_list.append((msg,status_str))
+        elif customer_type == 'seller':
+            status_str = MockData.get_seller().get_status_str()
+            MockData.seller_list.append((msg,status_str))
+
+    #Buyer singleton
+    #Abstracts away whether or not the buyer currently exists
+    @staticmethod
+    def get_buyer():
+        buyer = MockData.buyer_key.get()
+        if buyer:
+            return buyer
+        else:
+            MockData.make_buyer()
+            MockData.get_buyer()
+
+    #Seller singleton
+    #Abstracts away whether or not the seller currently exists
+    @staticmethod
+    def get_seller():
+        seller = MockData.seller_key.get()
+        if seller:
+            return seller
+        else:
+            MockData.make_seller()
+            MockData.get_seller()
+
+    #Make buyer with minimum necessary attributes
+    @staticmethod
+    def make_buyer():
+        buyer = Customer(key=MockData.buyer_key)
+        buyer.init_buyer()
+        buyer.phone_number = '3304029937'
+        buyer.put()
+
+    #Make seller with minimum necessary attributes
+    @staticmethod
+    def make_seller():
+        seller = Customer(key=MockData.seller_key)
+        seller.init_seller(4)
+        seller.phone_number = '4128675309'
+        seller.put()
+
+
+class SMSMockerPage(webapp2.RequestHandler):
     def get(self):
-        #Setup
-        #make an "init_seller" and "init_buyer" routine in Customer
-        phone = '3304029937'
-        cust_key = Customer.create_key(phone)
-        new_customer = Customer(key=cust_key)
+        template = JINJA_ENVIRONMENT.get_template("sms.html")
+        self.response.write(template.render())
 
-        new_customer.phone_number = phone
-        new_customer.google_account = users.get_current_user()
-        new_customer.email = new_customer.google_account.email()
-      
-        new_customer.init_seller(5)
-        new_customer.put()
 
-        #Make available
-        new_customer.process_SMS_request('Market')
-        #Make unavailable
-        #seller_props.process_SMS_request('bye', phone)
-        #Try bad input
-        #seller_props.process_SMS_request('Crunchatize me, Captain', phone)
 
-        #Teardown
-        #member_key.delete()
+class SMSMocker(webapp2.RequestHandler):  
+    
+    #Handle JSON request for record of all state tranitions
+    #That the buyer and seller have undergone
+    def get(self):
+        jdump = json.dumps({'buyer_list': MockData.buyer_list, 'seller_list':MockData.seller_list })
+        self.response.out.write(jdump)
+
+    #Handle request to refresh the buyer and seller logs
+    #by deleting the buyer and seller entities
+    def delete(self):
+
+        #Delete the buyer and the buyer properties
+        buyer = MockData.buyer_key.get()
+        if buyer:
+            buyer.buyer_props.delete()
+            buyer.key.delete()
+
+        #Delete the seller and the seller properties
+        seller = MockData.seller_key.get()
+        if seller:
+            seller.seller_props.delete()
+            seller.key.delete()
+
+        #Clear the list of state transitions and texts
+        MockData.buyer_list = []
+        MockData.seller_list = []
+
+        q = Queue(name='delay-queue')
+        q.purge()
+
+    #Handle mocked SMS sent by the buyer or the seller
+    def post(self):
+        data = json.loads(self.request.body)
+        sms = data['sms']
+        customer_type = data['customer_type']
+        #Add text to the appropriate list with the current state
+        if customer_type == 'buyer':
+            #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
+            foo = type(MockData.get_buyer())
+            MockData.get_buyer().process_SMS(sms)
+            sms = 'Buyer: ' + sms 
+            status_str = MockData.get_buyer().get_status_str()
+            MockData.buyer_list.append((sms,status_str))    
+        elif customer_type == 'seller':
+            #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
+            bar = type(MockData.get_seller())
+            MockData.get_seller().process_SMS(sms)
+            sms = 'Seller: ' + sms 
+            status_str = MockData.get_seller().get_status_str()
+            MockData.seller_list.append((sms,status_str))
 
 # Using data from registration, create new Customer and put into datastore
 # Expected request parameters:
@@ -624,9 +747,10 @@ app = webapp2.WSGIApplication([
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
-    ('/q', TransitionWorker),
+    ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
-    ('/test/seller', TestSeller),
+    ('/mock', SMSMockerPage),
+    ('/mock/data', SMSMocker),
 ], debug=True)
 
 def main():
