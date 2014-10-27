@@ -54,12 +54,12 @@ class Customer(ndb.Model):
     #   Used as unique identifier in key.
     phone_number = ndb.StringProperty()
 
-    # Whether or not the user's phone number has been
+    # Whether or not the customer's phone number has been
     # verified
     verified = ndb.BooleanProperty(required=True, default=False)
 
     # This is a five-character-long alphanumeric hash generated
-    # when the user is created.  It will be sent as a text to the
+    # when the customer is created.  It will be sent as a text to the
     # phone number they've created, and must be entered in a text
     # box to confirm that they do in fact use that phone number.
     verification_hash = ndb.StringProperty()
@@ -93,9 +93,9 @@ class Customer(ndb.Model):
         else:
             return "seller"
 
-    # TODO: filter active users
+    # TODO: filter active customers
     @classmethod
-    def get_active_users(cls):
+    def get_active_customers(cls):
         return cls.query()
 
     def get_status_str(self):
@@ -549,39 +549,39 @@ class LandingPage(webapp2.RequestHandler):
         user = users.get_current_user()
         if user:
             if Customer.get_by_email(user.email()):
-                self.redirect("/user/dash")
+                self.redirect("/customer/dash")
 
         template = JINJA_ENVIRONMENT.get_template("index.html")
         self.response.write(template.render())
 
 class Dash(webapp2.RequestHandler):
     def get(self):
-        user = User.get_by_id(users.get_current_user().email());
+        customer = Customer.get_by_id(users.get_current_user().email());
 
         template = JINJA_ENVIRONMENT.get_template("user/dash.html")
         self.response.write(template.render( {
-                'name' : user.name,
-                'is_active' : 'Active' if user.is_active else 'Inactive',
-                'user_type' : string.capitalize(user.user_type_str()),
-                'phone_number' : user.phone_number,
-                'verified' : 'Yes' if user.verified else 'No',
+                'name' : customer.name,
+                'is_active' : 'Active' if customer.is_active else 'Inactive',
+                'user_type' : string.capitalize(customer.customer_type_str()),
+                'phone_number' : customer.phone_number,
+                'verified' : 'Yes' if customer.verified else 'No',
                 'logout_url' : users.create_logout_url(self.request.uri),
-                'active_users' : User.get_active_users()
+                'active_users' : Customer.get_active_customers()
             } ))
 
 class Edit(webapp2.RequestHandler):
     def post(self):
-        user = User.get_by_id(users.get_current_user().email());
+        customer = Customer.get_by_id(users.get_current_user().email());
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
         if name:
-            user.name = name
-        if user.phone_number != phone_number:
-            user.phone_number = phone_number
-            user.verified = False
+            customer.name = name
+        if customer.phone_number != phone_number:
+            customer.phone_number = phone_number
+            customer.verified = False
 
-        user.put()
-        self.redirect("/user/dash")
+        customer.put()
+        self.redirect("/customer/dash")
 
 # Display registration page for buyers and sellers
 # Expected request parameters:
@@ -595,6 +595,7 @@ class Register(webapp2.RequestHandler):
 '''END Page request handlers'''
 
 '''Customer manipulation handlers''' 
+
 #Expected payload: {'key':key of the customer undergoing transition,
 #                   'request_str':string representing transition to apply,
 #                   'counter': the seller or buyer's counter at the time of enqueueing}
@@ -766,7 +767,7 @@ class AddCustomer(webapp2.RequestHandler):
         new_customer.phone_number = phone
         new_customer.verification_hash = ''.join(random.choice('0123456789ABCDEF') for i in range(5))
         new_customer.google_account = users.get_current_user()
-        new_customer.name = new_user.google_account.nickname()
+        new_customer.name = new_customer.google_account.nickname()
         new_customer.email = new_customer.google_account.email()
         new_customer.customer_type = int(self.request.get('customer_type'))
         
@@ -790,16 +791,16 @@ class VerifyPhone(webapp2.RequestHandler):
     def post(self):
         verification_code = self.request.get('verify_hash').strip().upper()
 
-        user_key = User.create_key(users.get_current_user())
-        user = user_key.get()
+        customer_key = Customer.create_key(users.get_current_user())
+        customer = customer_key.get()
 
-        if user.verified:
+        if customer.verified:
             self.response.write("You've already been verified.")
             return
 
-        if user.verification_hash == verification_code:
-            user.verified = True
-            user.put()
+        if customer.verification_hash == verification_code:
+            customer.verified = True
+            customer.put()
 
             self.response.write("Thanks! You've verified your phone number.")
         else:
@@ -809,9 +810,9 @@ class SMSHandler(webapp2.RequestHandler):
     def post(self):
         body = self.request.get('Body')
         phone = self.request.get('From')
-        user = User.query(User.phone_number == phone)
+        customer = Customer.query(Customer.phone_number == phone)
 
-        user.process_SMS(user, body)
+        customer.process_SMS(customer, body)
 
     @staticmethod
     def send_message(to, body):
@@ -823,6 +824,7 @@ class SMSWorker(webapp2.RequestHandler):
     def post(self):
         body = self.request.get('body')
         to = self.request.get('to')
+
         def send_message(to, body):
             message = SMSWorker.client.messages.create(
                 body=body,
@@ -833,17 +835,25 @@ class SMSWorker(webapp2.RequestHandler):
         send_message(to, body)
 
 app = webapp2.WSGIApplication([
+    # Root
     ('/', LandingPage),
+
+    # Customer routes
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
-    ('/user/dash', Dash),
-    ('/user/dash/edit', Edit),
-    ('/user/verify', VerifyPhone),
+    ('/customer/dash', Dash),
+    ('/customer/dash/edit', Edit),
+    ('/customer/verify', VerifyPhone),
+
+    # Queue workers
     ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
+
     ('/mock', SMSMockerPage),
     ('/mock/data', SMSMocker),
+
+    # SMS handlers
     ('/sms', SMSHandler),
     ('/smsworker', SMSWorker),
 ], debug=True)
