@@ -17,7 +17,7 @@
         <div class="list-group">
             <a href="#" class="list-group-item active" id="name">{{ name }}</a>
             <a href="#" class="list-group-item">Status: {{ is_active }}</a>
-            <a href="#" class="list-group-item">User Type: {{ user_type }}</a>
+            <a href="#" class="list-group-item">User Type: {{ customer_type }}</a>
             <a href="#" class="list-group-item" id="phone_number" >Phone Number: {{ phone_number }}
             </a>
             <a href="#" class="list-group-item">Verified: {{ verified }}</a>
@@ -38,13 +38,14 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user in active_users %}
+                {% for customer in active_users %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td>{{ user.google_account.nickname() }}</td>
-                    <td>{{ user.user_type_str() }}</td>
+                    <td>{{ customer.name }}</td>
+                    <td>{{ customer.customer_type_str() }}</td>
                 </tr>
                 {% endfor %}
+            </tbody>
       </table>
     </div>
 
@@ -60,11 +61,11 @@
                 <div class="list-group">
                     <a href="#" class="list-group-item">
                         <label>Name: </label>
-                        <input type="text" id="user_name" name="name" value={{ name }}>
+                        <input type="text" id="customer_name" name="name" value={{ name }}>
                     </a>
                     <a href="#" class="list-group-item">
                         <label>Phone Number: </label>
-                        <input type="tel" id="user_phone" name="phone"
+                        <input type="tel" id="customer_phone" name="phone"
                             value={{ phone_number }}
                             data-bv-phone
                             data-bv-phone-country="US"
@@ -107,15 +108,15 @@
         });
 
         function process_form(t, event) {
-            var name = $('#user_name').val();
+            var name = $('#customer_name').val();
 
             //Store phone number as string of 10 digits
-            var phone_number = $('#user_phone').val();
+            var phone_number = $('#customer_phone').val();
             phone_number = phone_number.replace(/\D/g,'');
 
             //Send form data to backend.
             //Redirect to dash screen
-            $.post("/user/dash/edit", {'name' : name, 'phone_number' : phone_number}, function(){
+            $.post("/customer/dash/edit", {'name' : name, 'phone_number' : phone_number}, function(){
               window.location = "dash";
             });
         }
