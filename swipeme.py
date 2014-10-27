@@ -558,7 +558,7 @@ class Dash(webapp2.RequestHandler):
     def get(self):
         customer = Customer.get_by_id(users.get_current_user().email());
 
-        template = JINJA_ENVIRONMENT.get_template("user/dash.html")
+        template = JINJA_ENVIRONMENT.get_template("customer/dash.html")
         self.response.write(template.render( {
                 'name' : customer.name,
                 'is_active' : 'Active' if customer.is_active else 'Inactive',
