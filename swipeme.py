@@ -69,7 +69,6 @@ class Buyer(ndb.Model):
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
-            logging.info(self.status)
             self.put()
             #And store the Customer
             self.get_parent().put()
@@ -97,7 +96,7 @@ class Buyer(ndb.Model):
         #if the price is acceptable
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
-        self.set_partner_key = partner.key
+        self.set_partner_key(partner.key)
 
         price = partner.props().asking_price
         return msg.decide_before_price + str(price) + msg.decide_after_price
@@ -486,7 +485,7 @@ class Customer(ndb.Model):
     def send_message(self,message):
         #Stubbed implementation
         if message:
-            logging.info(self.phone_number + message)
+            
             self.put()
 
         #Debug code for SMS mocker
@@ -502,6 +501,10 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
+        if request_str == 'match':
+            logging.info(possible_transitions)
+            logging.info(self)
+            logging.info(props)
         message = possible_transitions[request_str](props, **kwargs)
 
         self.send_message(message)
@@ -509,9 +512,7 @@ class Customer(ndb.Model):
     def process_SMS(self,text):
         #Grab the first word of the SMS
         first_word = string.lower(text.split()[0])
-        logging.info(self.phone_number + " " + first_word)
         props = self.props()
-        logging.info(props)
         if first_word not in props.valid_words[props.status]:
             self.request_clarification()
             return
@@ -566,7 +567,6 @@ class Register(webapp2.RequestHandler):
 #                   'counter': the seller or buyer's counter at the time of enqueueing}
 class TransitionWorker(webapp2.RequestHandler):
     def post(self):
-        logging.info('In TransitionWorker')
         #Get the member
         cust_key = ndb.Key(urlsafe=self.request.get('key'))
         #Get the request string
@@ -576,11 +576,8 @@ class TransitionWorker(webapp2.RequestHandler):
         #Only execute the request if the seller or buyer 
         #   is still in the same state as when it was issued
         props = cust.props()
-        #oth = string.atoi(self.request.get('counter'))
-        #logging.info('props.counter is ' + str(props.counter) + ' but the payload counter is ' + str(oth))
-        #+ str(props.counter) + ' but the payload counter is ' + str(oth) 
+
         if props.counter == string.atoi(self.request.get('counter')):
-            #logging.info('Trying to call customer')
             cust.execute_request(request_str)
 
 #Expected payload:  'cust_key': urlsafe key of customer who requested match
@@ -609,7 +606,8 @@ class MockData(object):
 
     @staticmethod
     def receive_SMS(msg,customer_type):
-        msg = 'SwipeMe: ' + msg
+        if msg:
+            msg = 'SwipeMe: ' + msg
         if customer_type == 'buyer':
             status_str = MockData.get_buyer().get_status_str()
             MockData.buyer_list.append((msg,status_str))
@@ -669,7 +667,6 @@ class SMSMocker(webapp2.RequestHandler):
     #That the buyer and seller have undergone
     def get(self):
         jdump = json.dumps({'buyer_list': MockData.buyer_list, 'seller_list':MockData.seller_list })
-        logging.info(jdump)
         self.response.out.write(jdump)
 
     #Handle request to refresh the buyer and seller logs
@@ -684,9 +681,7 @@ class SMSMocker(webapp2.RequestHandler):
     def post(self):
         data = json.loads(self.request.body)
         sms = data['sms']
-        logging.info(sms)
         customer_type = data['customer_type']
-        logging.info(customer_type)
         #Add text to the appropriate list with the current state
         if customer_type == 'buyer':
             #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
