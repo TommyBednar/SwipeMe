@@ -173,8 +173,8 @@ class Buyer(ndb.Model):
         #If the transaction occured, deactivate the buyer
         #And perform end-of-transaction code on the seller
         self.status = Buyer.INACTIVE
-        self.set_partner_key(None)
         self.get_partner().enqueue_trans('transact',0)
+        self.set_partner_key(None)
 
         return None
 
