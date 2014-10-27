@@ -7,11 +7,22 @@ import msg
 import string
 import time
 import json
+import random
+import string
 
+# Appengine-specific includes
 from google.appengine.ext import ndb
 from google.appengine.api import users
 from google.appengine.api import urlfetch
 from google.appengine.api import taskqueue
+
+# Twilio
+from twilio.rest import TwilioRestClient
+
+# SwipeMe global settings
+import swipeme_globals
+import swipeme_api_keys
+
 
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();
@@ -21,7 +32,148 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
+class Customer(ndb.Model):
+    
+    # 1 == buyer. 2 == seller
+    customer_type = ndb.IntegerProperty()
 
+    # Used as an enum for customer_type
+    # e.g., joe_schmoe.customer_type = Customer.buyer
+    buyer, seller = range(1, 3)
+
+    # Authentication for logging in via Google Accounts API
+    google_account = ndb.UserProperty()
+
+    # Nickname for the customer
+    name = ndb.StringProperty()
+
+    # Customer's email. Used for customer lookup
+    email = ndb.StringProperty()
+
+    # Customer's phone number for texting information
+    #   Used as unique identifier in key.
+    phone_number = ndb.StringProperty()
+
+    # Whether or not the user's phone number has been
+    # verified
+    verified = ndb.BooleanProperty(required=True, default=False)
+
+    # This is a five-character-long alphanumeric hash generated
+    # when the user is created.  It will be sent as a text to the
+    # phone number they've created, and must be entered in a text
+    # box to confirm that they do in fact use that phone number.
+    verification_hash = ndb.StringProperty()
+
+    #Buyer-specific data
+    buyer_props = ndb.KeyProperty(kind='Buyer')
+
+    #Seller-specific data
+    seller_props = ndb.KeyProperty(kind='Seller')
+
+    #Key of other customer in transaction
+    partner_key = ndb.KeyProperty(kind='Customer')
+
+    #Depending on customer_type, return buyer or seller properties
+    def props(self):
+        if self.customer_type == Customer.buyer:
+            return self.buyer_props.get()
+        elif self.customer_type == Customer.seller:
+            return self.seller_props.get()
+
+    # Given a customer, generate a key
+    # using the customer's phone number as a unique identifier
+    @classmethod
+    def create_key(cls, phone):
+        return ndb.Key(cls,phone)
+
+    # Return string representation of customer_type
+    def customer_type_str(self):
+        if self.customer_type == Customer.buyer:
+            return "buyer"
+        else:
+            return "seller"
+
+    # TODO: filter active users
+    @classmethod
+    def get_active_users(cls):
+        return cls.query()
+
+    def get_status_str(self):
+        props = self.props()
+        return props.status_to_str[props.status]
+
+    # Return Customer with given google user information
+    # Return None if no such Customer found
+    @classmethod
+    def get_by_email(cls,email):
+
+        customer_list = cls.query(cls.email == email).fetch(1)
+        if len(customer_list) == 1:
+            return customer_list[0]
+        else:
+            return None
+
+    def init_seller(self,price):
+        self.customer_type = Customer.seller
+
+        seller_props = Seller()
+        seller_props.asking_price = price
+        seller_props.status = Seller.UNAVAILABLE
+        seller_props.counter = 0
+        seller_props.parent_key = self.key
+        self.seller_props = seller_props.put()
+
+        self.put()
+
+    def init_buyer(self):
+        self.customer_type = Customer.buyer
+
+        buyer_props = Buyer()
+        buyer_props.status = Buyer.INACTIVE
+        buyer_props.counter = 0
+        buyer_props.parent_key = self.key
+        self.buyer_props = buyer_props.put()
+
+        self.put()
+
+    '''Methods to process and route SMS commands'''
+
+    def enqueue_trans(self,request_str,delay):
+        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
+        taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
+
+    def send_message(self,message):
+        #Stubbed implementation
+        if message:
+            self.put()
+
+        #Debug code for SMS mocker
+        if self.key == MockData.buyer_key:
+            MockData.receive_SMS(msg=message,customer_type='buyer')
+        elif self.key == MockData.seller_key:
+            MockData.receive_SMS(msg=message,customer_type='seller')
+
+    def request_clarification(self):
+        self.send_message("Didn't catch that, bro.")
+
+    def execute_request(self, request_str, **kwargs):
+
+        props = self.props()
+        possible_transitions = props.transitions[props.status]
+        message = possible_transitions[request_str](props, **kwargs)
+
+        self.send_message(message)
+
+    def process_SMS(self,text):
+        #Grab the first word of the SMS
+        first_word = string.lower(text.split()[0])
+        props = self.props()
+        if first_word not in props.valid_words[props.status]:
+            self.request_clarification()
+            return
+
+        request_str = props.valid_words[props.status][first_word]
+        self.execute_request(request_str)
 
 class Buyer(ndb.Model):
 
@@ -389,133 +541,7 @@ class Seller(ndb.Model):
     MATCHED:{'no':'depart'}
     }
 
-class Customer(ndb.Model):
-    
-    # 1 == buyer. 2 == seller
-    customer_type = ndb.IntegerProperty()
 
-    # Used as an enum for customer_type
-    # e.g., joe_schmoe.customer_type = Customer.buyer
-    buyer, seller = range(1, 3)
-
-    # Authentication for logging in via Google Accounts API
-    google_account = ndb.UserProperty()
-
-    # Customer's email. Used for customer lookup
-    email = ndb.StringProperty()
-
-    # Customer's phone number for texting information
-    #   Used as unique identifier in key.
-    phone_number = ndb.StringProperty()
-
-    #Buyer-specific data
-    buyer_props = ndb.KeyProperty(kind='Buyer')
-
-    #Seller-specific data
-    seller_props = ndb.KeyProperty(kind='Seller')
-
-    #Key of other customer in transaction
-    partner_key = ndb.KeyProperty(kind='Customer')
-
-    #Depending on customer_type, return buyer or seller properties
-    def props(self):
-        if self.customer_type == Customer.buyer:
-            return self.buyer_props.get()
-        elif self.customer_type == Customer.seller:
-            return self.seller_props.get()
-
-    # Given a customer, generate a key
-    # using the customer's phone number as a unique identifier
-    @classmethod
-    def create_key(cls, phone):
-        return ndb.Key(cls,phone)
-
-    # Return string representation of customer_type
-    def customer_type_str(self):
-        if self.customer_type == Customer.buyer:
-            return "buyer"
-        else:
-            return "seller"
-
-    def get_status_str(self):
-        props = self.props()
-        return props.status_to_str[props.status]
-
-    # Return Customer with given google user information
-    # Return None if no such Customer found
-    @classmethod
-    def get_by_email(cls,email):
-
-        customer_list = cls.query(cls.email == email).fetch(1)
-        if len(customer_list) == 1:
-            return customer_list[0]
-        else:
-            return None
-
-    def init_seller(self,price):
-        self.customer_type = Customer.seller
-
-        seller_props = Seller()
-        seller_props.asking_price = price
-        seller_props.status = Seller.UNAVAILABLE
-        seller_props.counter = 0
-        seller_props.parent_key = self.key
-        self.seller_props = seller_props.put()
-
-        self.put()
-
-    def init_buyer(self):
-        self.customer_type = Customer.buyer
-
-        buyer_props = Buyer()
-        buyer_props.status = Buyer.INACTIVE
-        buyer_props.counter = 0
-        buyer_props.parent_key = self.key
-        self.buyer_props = buyer_props.put()
-
-        self.put()
-
-    '''Methods to process and route SMS commands'''
-
-    def enqueue_trans(self,request_str,delay):
-        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
-        taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
-
-    def send_message(self,message):
-        #Stubbed implementation
-        if message:
-            self.put()
-
-        #Debug code for SMS mocker
-        if self.key == MockData.buyer_key:
-            MockData.receive_SMS(msg=message,customer_type='buyer')
-        elif self.key == MockData.seller_key:
-            MockData.receive_SMS(msg=message,customer_type='seller')
-
-    def request_clarification(self):
-        self.send_message("Didn't catch that, bro.")
-
-    def execute_request(self, request_str, **kwargs):
-
-        props = self.props()
-        possible_transitions = props.transitions[props.status]
-        message = possible_transitions[request_str](props, **kwargs)
-
-        self.send_message(message)
-
-    def process_SMS(self,text):
-        #Grab the first word of the SMS
-        first_word = string.lower(text.split()[0])
-        props = self.props()
-        if first_word not in props.valid_words[props.status]:
-            self.request_clarification()
-            return
-
-        request_str = props.valid_words[props.status][first_word]
-        self.execute_request(request_str)
-
-
-'''Page request handlers'''
 #Render landing page
 class LandingPage(webapp2.RequestHandler):
     def get(self):
@@ -523,26 +549,39 @@ class LandingPage(webapp2.RequestHandler):
         user = users.get_current_user()
         if user:
             if Customer.get_by_email(user.email()):
-                self.redirect("/customer/home")
+                self.redirect("/user/dash")
 
         template = JINJA_ENVIRONMENT.get_template("index.html")
         self.response.write(template.render())
 
-class Home(webapp2.RequestHandler):
+class Dash(webapp2.RequestHandler):
     def get(self):
+        user = User.get_by_id(users.get_current_user().email());
 
-        customer = Customer.get_by_email(users.get_current_user().email())
-        if customer == None:
-            self.redirect('/')
-        else:
+        template = JINJA_ENVIRONMENT.get_template("user/dash.html")
+        self.response.write(template.render( {
+                'name' : user.name,
+                'is_active' : 'Active' if user.is_active else 'Inactive',
+                'user_type' : string.capitalize(user.user_type_str()),
+                'phone_number' : user.phone_number,
+                'verified' : 'Yes' if user.verified else 'No',
+                'logout_url' : users.create_logout_url(self.request.uri),
+                'active_users' : User.get_active_users()
+            } ))
 
-            self.response.write('<html><body>')
-            self.response.write(customer.customer_type_str() + "<br>")
-            self.response.write('Buyer: ' + str(Customer.buyer) + '<br>Seller: ' + str(Customer.seller) + '<br>')
-            self.response.write('<br>')
-            self.response.write(customer.phone_number)
-            self.response.write('<br><a href="' + users.create_logout_url(self.request.uri) + '">Logout</a>')
-            self.response.write('</body></html>')
+class Edit(webapp2.RequestHandler):
+    def post(self):
+        user = User.get_by_id(users.get_current_user().email());
+        name = self.request.get('name')
+        phone_number = self.request.get('phone_number')
+        if name:
+            user.name = name
+        if user.phone_number != phone_number:
+            user.phone_number = phone_number
+            user.verified = False
+
+        user.put()
+        self.redirect("/user/dash")
 
 # Display registration page for buyers and sellers
 # Expected request parameters:
@@ -725,7 +764,9 @@ class AddCustomer(webapp2.RequestHandler):
         new_customer = Customer(key=Customer.create_key(phone))
 
         new_customer.phone_number = phone
+        new_customer.verification_hash = ''.join(random.choice('0123456789ABCDEF') for i in range(5))
         new_customer.google_account = users.get_current_user()
+        new_customer.name = new_user.google_account.nickname()
         new_customer.email = new_customer.google_account.email()
         new_customer.customer_type = int(self.request.get('customer_type'))
         
@@ -740,17 +781,71 @@ class AddCustomer(webapp2.RequestHandler):
 
         new_customer.put()
 
+        SMSHandler.send_message(new_user.phone_number, "Please enter the code %s to verify your phone number." % new_customer.verification_hash)
+
 '''END Customer manipulation handlers''' 
+
+
+class VerifyPhone(webapp2.RequestHandler):
+    def post(self):
+        verification_code = self.request.get('verify_hash').strip().upper()
+
+        user_key = User.create_key(users.get_current_user())
+        user = user_key.get()
+
+        if user.verified:
+            self.response.write("You've already been verified.")
+            return
+
+        if user.verification_hash == verification_code:
+            user.verified = True
+            user.put()
+
+            self.response.write("Thanks! You've verified your phone number.")
+        else:
+            self.response.write("Sorry, you entered the wrong code.")
+
+class SMSHandler(webapp2.RequestHandler):
+    def post(self):
+        body = self.request.get('Body')
+        phone = self.request.get('From')
+        user = User.query(User.phone_number == phone)
+
+        user.process_SMS(user, body)
+
+    @staticmethod
+    def send_message(to, body):
+        taskqueue.add(url='/smsworker', params={'to': to, 'body': body})
+
+class SMSWorker(webapp2.RequestHandler):
+    client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)
+
+    def post(self):
+        body = self.request.get('body')
+        to = self.request.get('to')
+        def send_message(to, body):
+            message = SMSWorker.client.messages.create(
+                body=body,
+                to=to,
+                from_=swipeme_globals.PHONE_NUMBER
+            )
+
+        send_message(to, body)
 
 app = webapp2.WSGIApplication([
     ('/', LandingPage),
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
     ('/customer/home', Home),
+    ('/user/dash', Dash),
+    ('/user/dash/edit', Edit),
+    ('/user/verify', VerifyPhone),
     ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
     ('/mock', SMSMockerPage),
     ('/mock/data', SMSMocker),
+    ('/sms', SMSHandler),
+    ('/smsworker', SMSWorker),
 ], debug=True)
 
 def main():

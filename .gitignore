@@ -55,5 +55,5 @@ docs/_build/
 # PyBuilder
 target/
 
-# Don't publicize my Twilio API keys
+# Ignore this config file since it contains my Twilio API keys
 swipeme_api_keys.py
