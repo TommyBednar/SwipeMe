@@ -49,12 +49,12 @@ class Buyer(ndb.Model):
         return self.parent_key.get()
 
     def get_partner(self):
-        self.get_parent().partner_key.get()
+        logging.info(self.get_parent())
+        logging.info(self.get_parent().partner_key)
+        return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
-        parent = self.get_parent()
-        parent.partner_key = new_key
-        parent.put()
+        self.get_parent().partner_key = new_key
 
     def find_match(self):
         params = {'cust_key':self.parent_key.urlsafe()}
@@ -96,6 +96,7 @@ class Buyer(ndb.Model):
         #if the price is acceptable
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
+        logging.info(partner.key)
         self.set_partner_key(partner.key)
 
         price = partner.props().asking_price
@@ -203,7 +204,8 @@ class Buyer(ndb.Model):
     WAITING:{
     'complain':on_complain,
     'check':on_check,
-    'success':on_success},
+    'success':on_success,
+    'retry': on_retry,},
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
@@ -235,8 +237,6 @@ class Seller(ndb.Model):
     parent_key = ndb.KeyProperty(kind='Customer')
     #The key of the buyer to which this seller has been matched
 
-    #TODO: Could be in Customer. DRY
-    partner_key = ndb.KeyProperty(kind='Customer')
     #Delayed requests will only execute if the counter at the time of execution
     #is the same as the counter at the time the request was created.
     counter = ndb.IntegerProperty()
@@ -247,7 +247,6 @@ class Seller(ndb.Model):
         return self.parent_key.get()
 
     def get_partner(self):
-        #partner_key is None!!!
         return self.get_parent().partner_key.get()
 
     def set_partner_key(self, new_key):
@@ -284,7 +283,7 @@ class Seller(ndb.Model):
 
     @state_trans
     def on_depart(self):
-        assert self.status != UNAVAILABLE
+        assert self.status != Seller.UNAVAILABLE
 
         #If the seller leaves when a buyer
         #has been matched with the seller,
@@ -408,10 +407,10 @@ class Customer(ndb.Model):
     phone_number = ndb.StringProperty()
 
     #Buyer-specific data
-    buyer_props = ndb.StructuredProperty(Buyer)
+    buyer_props = ndb.KeyProperty(kind='Buyer')
 
     #Seller-specific data
-    seller_props = ndb.StructuredProperty(Seller)
+    seller_props = ndb.KeyProperty(kind='Seller')
 
     #Key of other customer in transaction
     partner_key = ndb.KeyProperty(kind='Customer')
@@ -419,9 +418,9 @@ class Customer(ndb.Model):
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
-            return self.buyer_props
+            return self.buyer_props.get()
         elif self.customer_type == Customer.seller:
-            return self.seller_props
+            return self.seller_props.get()
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
@@ -459,9 +458,8 @@ class Customer(ndb.Model):
         seller_props.status = Seller.UNAVAILABLE
         seller_props.counter = 0
         seller_props.parent_key = self.key
-        self.seller_props = seller_props
+        self.seller_props = seller_props.put()
 
-        seller_props.put()
         self.put()
 
     def init_buyer(self):
@@ -471,9 +469,8 @@ class Customer(ndb.Model):
         buyer_props.status = Buyer.INACTIVE
         buyer_props.counter = 0
         buyer_props.parent_key = self.key
-        self.buyer_props = buyer_props
+        self.buyer_props = buyer_props.put()
 
-        buyer_props.put()
         self.put()
 
     '''Methods to process and route SMS commands'''
@@ -485,7 +482,6 @@ class Customer(ndb.Model):
     def send_message(self,message):
         #Stubbed implementation
         if message:
-            
             self.put()
 
         #Debug code for SMS mocker
