@@ -80,6 +80,9 @@ class Customer(ndb.Model):
         elif self.customer_type == Customer.seller:
             return self.seller_props.get()
 
+    def is_active(self):
+        return self.props().status > 1
+
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
     @classmethod
@@ -556,12 +559,12 @@ class LandingPage(webapp2.RequestHandler):
 
 class Dash(webapp2.RequestHandler):
     def get(self):
-        customer = Customer.get_by_id(users.get_current_user().email());
+        customer = Customer.get_by_email(users.get_current_user().email());
 
         template = JINJA_ENVIRONMENT.get_template("customer/dash.html")
         self.response.write(template.render( {
                 'name' : customer.name,
-                'is_active' : 'Active' if customer.is_active else 'Inactive',
+                'is_active' : 'Active' if customer.is_active() else 'Inactive',
                 'user_type' : string.capitalize(customer.customer_type_str()),
                 'phone_number' : customer.phone_number,
                 'verified' : 'Yes' if customer.verified else 'No',
@@ -775,14 +778,16 @@ class AddCustomer(webapp2.RequestHandler):
         if new_customer.customer_type == Customer.seller:
             seller_props = Seller()
             seller_props.asking_price = int(self.request.get('asking_price'))
-            new_customer.seller_props = seller_props
+            new_customer.seller_props = seller_props.put()
+
         else:
             buyer_props = Buyer()
-            new_customer.buyer_props = buyer_props
+            new_customer.buyer_props = buyer_props.put()
+
 
         new_customer.put()
 
-        SMSHandler.send_message(new_user.phone_number, "Please enter the code %s to verify your phone number." % new_customer.verification_hash)
+        SMSHandler.send_message(new_customer.phone_number, "Please enter the code %s to verify your phone number." % new_customer.verification_hash)
 
 '''END Customer manipulation handlers''' 
 
@@ -791,8 +796,7 @@ class VerifyPhone(webapp2.RequestHandler):
     def post(self):
         verification_code = self.request.get('verify_hash').strip().upper()
 
-        customer_key = Customer.create_key(users.get_current_user())
-        customer = customer_key.get()
+        customer = Customer.get_by_email(users.get_current_user().email())
 
         if customer.verified:
             self.response.write("You've already been verified.")
@@ -841,7 +845,6 @@ app = webapp2.WSGIApplication([
     # Customer routes
     ('/customer/add_customer', AddCustomer),
     ('/customer/register', Register),
-    ('/customer/home', Home),
     ('/customer/dash', Dash),
     ('/customer/dash/edit', Edit),
     ('/customer/verify', VerifyPhone),
