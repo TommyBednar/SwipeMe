@@ -820,7 +820,7 @@ class SMSHandler(webapp2.RequestHandler):
 
     @staticmethod
     def send_message(to, body):
-        taskqueue.add(url='/smsworker', params={'to': to, 'body': body})
+        taskqueue.add(url='/q/sms', params={'to': to, 'body': body})
 
 class SMSWorker(webapp2.RequestHandler):
     client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)
@@ -852,13 +852,14 @@ app = webapp2.WSGIApplication([
     # Queue workers
     ('/q/trans', TransitionWorker),
     ('/q/match', MatchWorker),
-
-    ('/mock', SMSMockerPage),
-    ('/mock/data', SMSMocker),
+    ('/q/sms', SMSWorker),
 
     # SMS handlers
     ('/sms', SMSHandler),
-    ('/smsworker', SMSWorker),
+
+    # SMS Mocker for demonstration and testing
+    ('/mock', SMSMockerPage),
+    ('/mock/data', SMSMocker),
 ], debug=True)
 
 def main():
