@@ -104,8 +104,9 @@ class Customer(ndb.Model):
         minimum = 20
 
         for customer in Customer.query():
-            if customer.asking_price > 0 and customer.asking_price < minimum:
-                minimum = customer.asking_price
+            if customer.customer_type == Customer.seller:
+               if customer.seller_props.asking_price > 0 and customer.seller_props.asking_price < minimum:
+                   minimum = customer.seller_props.asking_price
 
         return minimum
 
@@ -592,7 +593,7 @@ class Dash(webapp2.RequestHandler):
                 'user_type' : string.capitalize(customer.customer_type_str()),
                 'phone_number' : customer.phone_number,
                 'verified' : 'Yes' if customer.verified else 'No',
-                'display_verification_button': customer.verified
+                'display_verification_button': customer.verified,
                 'logout_url' : users.create_logout_url(self.request.uri),
                 'active_users' : Customer.get_active_customers(),
                 'active_user_count': active_customers.count(),
@@ -853,7 +854,7 @@ class AddCustomer(webapp2.RequestHandler):
         new_customer.put()
 
         # SMSHandler.send_message(new_customer.phone_number, "Please enter the code %s to verify your phone number." % new_customer.verification_hash)
-        SMSHandler.send_new_verification_message(new_user)
+        SMSHandler.send_new_verification_message(new_customer)
 
 '''END Customer manipulation handlers''' 
 
@@ -890,7 +891,7 @@ class SMSHandler(webapp2.RequestHandler):
     @staticmethod
     def send_new_verification_message(customer):
         customer.regenerate_verification_hash()
-        SMSHandler.send_message(customer.phone_number, "Please enter the code " + user.verification_hash + " to verify your phone number.")
+        SMSHandler.send_message(customer.phone_number, "Please enter the code " + customer.verification_hash + " to verify your phone number.")
 
 class SMSWorker(webapp2.RequestHandler):
     client = TwilioRestClient(swipeme_api_keys.ACCOUNT_SID, swipeme_api_keys.AUTH_TOKEN)
