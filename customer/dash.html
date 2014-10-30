@@ -88,7 +88,11 @@
 			</tr>
 		</table>
 		<div class="form-group">
-			<button style="display: none;" class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
+            {% if display_verification_button %}
+                <button style="display: none;" class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
+            {% else %}
+                <button class="btn btn-block btn-success" id="verify_user_button">Verify User</button>
+            {% endif %}
 			<button class="btn btn-block btn-primary" id="edit_user_button">Edit user</button>
 			<button class="btn btn-block btn-danger" id="logout_user">Logout</button>
 		</div>
@@ -104,7 +108,11 @@
 				{% endif %}
 			</div>
 			<div class="col-xs-6">
-				<div class="alert alert-info">The current minimum price is <strong>${{ minimum_price }}</strong>.</div>
+                {% if minimum_price == 0 %}
+                    <div class="alert alert-warning">There's no current price, since there are no users.</div>
+                {% else %}
+                    <div class="alert alert-info">The current minimum price is <strong>${{ minimum_price }}</strong>.</div>
+                {% endif %}
 			</div>
 		</div>
 		<div class="panel panel-default">
@@ -114,9 +122,13 @@
 			<div class="panel-body">
 				<ul>
 					{% for user in active_users %}
+						
 					<li>
+						{% if user.google_account %}
 						{{ user.google_account.nickname() }}
+						{% endif %}
 					</li>
+						
 					{% endfor %}
 				</ul>
 			</div><!--/.panel-body-->

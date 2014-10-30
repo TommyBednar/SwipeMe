@@ -87,7 +87,7 @@ class Customer(ndb.Model):
             return self.seller_props.get()
 
     def is_active(self):
-        return self.props().status > 1
+        return (self.props().status > 1)
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
@@ -101,14 +101,19 @@ class Customer(ndb.Model):
 
     @staticmethod
     def get_minimum_price():
-        minimum = 20
+        MAX_PRICE = 20
+        minimum = MAX_PRICE
 
         for customer in Customer.query():
             if customer.customer_type == Customer.seller:
-               if customer.seller_props.asking_price > 0 and customer.seller_props.asking_price < minimum:
-                   minimum = customer.seller_props.asking_price
+                price = customer.props().asking_price
+                if price > 0 and price < minimum:
+                    minimum = price
 
-        return minimum
+        if minimum == MAX_PRICE:
+            return 0
+        else:
+            return minimum
 
     # Return string representation of customer_type
     def customer_type_str(self):
@@ -118,9 +123,16 @@ class Customer(ndb.Model):
             return "seller"
 
     # TODO: filter active customers
-    @classmethod
-    def get_active_customers(cls):
-        return cls.query()
+    @staticmethod
+    def get_active_customers():
+        customers = Customer.query()
+        active_customers = []
+
+        for customer in customers:
+            if customer.is_active():
+                active_customers.append(customer)
+
+        return customers
 
     def get_status_str(self):
         props = self.props()
@@ -592,10 +604,10 @@ class Dash(webapp2.RequestHandler):
                 'is_active' : 'Active' if customer.is_active() else 'Inactive',
                 'user_type' : string.capitalize(customer.customer_type_str()),
                 'phone_number' : customer.phone_number,
-                'verified' : 'Yes' if customer.verified else 'No',
+                'verified' : verified,
                 'display_verification_button': customer.verified,
                 'logout_url' : users.create_logout_url(self.request.uri),
-                'active_users' : Customer.get_active_customers(),
+                'active_users' : active_customers,
                 'active_user_count': active_customers.count(),
                 'minimum_price': Customer.get_minimum_price(),
         } ))
@@ -605,7 +617,7 @@ class Edit(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'application/json'
         updated_phone = False
 
-        customer = Customer.get_by_id(users.get_current_user().email());
+        customer = Customer.get_by_email(users.get_current_user().email());
 
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
@@ -631,7 +643,7 @@ class Edit(webapp2.RequestHandler):
 class Verify(webapp2.RequestHandler):
     def post(self):
         self.response.headers['Content-Type'] = 'application/json'
-        customer = Customer.get_by_id(users.get_current_user().email());
+        customer = Customer.get_by_email(users.get_current_user().email());
 
         success = False
 
@@ -843,11 +855,13 @@ class AddCustomer(webapp2.RequestHandler):
         #Add customer_type specific data
         if new_customer.customer_type == Customer.seller:
             seller_props = Seller()
+            seller_props.status = Seller.UNAVAILABLE
             seller_props.asking_price = int(self.request.get('asking_price'))
             new_customer.seller_props = seller_props.put()
 
         else:
             buyer_props = Buyer()
+            buyer_props.status = Buyer.INACTIVE
             new_customer.buyer_props = buyer_props.put()
 
 
@@ -881,6 +895,10 @@ class SMSHandler(webapp2.RequestHandler):
         body = self.request.get('Body')
         phone = self.request.get('From')
         customer = Customer.query(Customer.phone_number == phone)
+
+        # If the user hasn't verified their phone, don't respond?
+        if not customer.verified:
+            return
 
         customer.process_SMS(customer, body)
 
@@ -918,6 +936,7 @@ app = webapp2.WSGIApplication([
     ('/customer/register', Register),
     ('/customer/dash', Dash),
     ('/customer/dash/edit', Edit),
+    ('/customer/dash/verify', Verify),
     ('/customer/verify', VerifyPhone),
 
     # Queue workers

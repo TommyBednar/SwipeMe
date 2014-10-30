@@ -36,9 +36,6 @@ $(document).ready(function() {
 		window.location.href = "{{ logout_url }}";
 	});
 
-	if('{{ display_verification_button }}' == 'False')
-		$("#verify_user_button").show();
-
 	$('#edit_user_form').bootstrapValidator({
 		feedbackIcons: {
 			valid: 'glyphicon glyphicon-ok',
@@ -80,7 +77,7 @@ function update_user() {
 		'phone_number': phone
 	};
 
-	$.post("/user/dash/edit", post_data, function(data) {
+	$.post("/customer/dash/edit", post_data, function(data) {
 		$("#name").text(name);
 		$("#phone_number").text(phone);
 
@@ -99,7 +96,7 @@ function verify_user() {
 		'verification_code': verification_code
 	};
 
-	$.post("/user/dash/verify", post_data, function(data) {
+	$.post("/customer/dash/verify", post_data, function(data) {
 		if(data.verified) {
 			$("#verified").addClass("glyphicon-ok").removeClass("glyphicon-remove");
 			$("#verify_user_button").hide();
