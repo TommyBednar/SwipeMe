@@ -17,6 +17,8 @@ from google.appengine.ext import ndb
 from google.appengine.api import users
 from google.appengine.api import urlfetch
 from google.appengine.api import taskqueue
+from google.appengine.api import mail
+
 
 # Twilio
 from twilio.rest import TwilioRestClient
@@ -39,7 +41,7 @@ def _get_current_user():
     return customer_key.get()
 
 class Customer(ndb.Model):
-    
+
     # 1 == buyer. 2 == seller
     customer_type = ndb.IntegerProperty()
 
@@ -251,7 +253,7 @@ class Buyer(ndb.Model):
     def state_trans(func):
         def decorated(self, *args, **kwargs):
             #Increment the counter,
-            self.counter = (self.counter + 1) % Buyer.max_counter 
+            self.counter = (self.counter + 1) % Buyer.max_counter
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
@@ -264,7 +266,7 @@ class Buyer(ndb.Model):
     '''State transition methods'''
     @state_trans
     def on_request(self):
-        assert self.status == Buyer.INACTIVE 
+        assert self.status == Buyer.INACTIVE
 
         #When the buyer asks to be swiped in, try to find
         #a seller
@@ -322,11 +324,11 @@ class Buyer(ndb.Model):
         self.status = Buyer.INACTIVE
         self.get_partner().enqueue_trans('unlock',0)
         self.set_partner_key(None)
-        
+
 
         return msg.decline
 
-    
+
     @state_trans
     def on_check(self):
         assert self.status == Buyer.WAITING
@@ -342,7 +344,7 @@ class Buyer(ndb.Model):
     def on_complain(self):
         assert self.status == Buyer.WAITING
 
-        #If buyer sends text signaling that seller 
+        #If buyer sends text signaling that seller
         #never showed, restart matching process
         #And deactivate the seller
         self.status = Buyer.MATCHING
@@ -445,7 +447,7 @@ class Seller(ndb.Model):
     def state_trans(func):
         def decorated(self, *args, **kwargs):
             #Increment the counter,
-            self.counter = (self.counter + 1) % Seller.max_counter 
+            self.counter = (self.counter + 1) % Seller.max_counter
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
@@ -466,7 +468,7 @@ class Seller(ndb.Model):
         #make the seller unavailable
         self.status = Seller.AVAILABLE
         self.get_parent().enqueue_trans('timeout',1000)
-        
+
         return msg.enter
 
     @state_trans
@@ -476,7 +478,7 @@ class Seller(ndb.Model):
         #If the seller leaves when a buyer
         #has been matched with the seller,
         #let the buyer know and try to find another match
-        
+
         if self.status == Seller.LOCKED or self.status == Seller.MATCHED:
             self.get_partner().enqueue_trans('retry', 0)
             self.set_partner_key(None)
@@ -502,7 +504,7 @@ class Seller(ndb.Model):
         #seller's price to make sure the seller does not get double-booked
         self.status = Seller.LOCKED
         self.set_partner_key(kwargs['partner_key'])
-        
+
         return None
 
     @state_trans
@@ -523,7 +525,7 @@ class Seller(ndb.Model):
         #If the buyer accepts the seller's price,
         #Tell the seller to swipe the buyer in
         self.status = Seller.MATCHED
-        
+
         return msg.match
 
     @state_trans
@@ -534,7 +536,7 @@ class Seller(ndb.Model):
         #deactivate the seller
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
-        
+
         return msg.noshow
 
     @state_trans
@@ -545,7 +547,7 @@ class Seller(ndb.Model):
         #Make the seller opt in to selling again
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
-        
+
         return msg.transact
 
     #For each status, mapping from requests to operations
@@ -621,7 +623,7 @@ class Edit(webapp2.RequestHandler):
 
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
-        
+
         if name:
             customer.name = name
 
@@ -675,7 +677,7 @@ class Register(webapp2.RequestHandler):
 
 '''END Page request handlers'''
 
-'''Customer manipulation handlers''' 
+'''Customer manipulation handlers'''
 
 #Expected payload: {'key':key of the customer undergoing transition,
 #                   'request_str':string representing transition to apply,
@@ -688,7 +690,7 @@ class TransitionWorker(webapp2.RequestHandler):
         request_str = self.request.get('request_str')
         #Get the buyer_props or seller_props that can handle the request
         cust = cust_key.get()
-        #Only execute the request if the seller or buyer 
+        #Only execute the request if the seller or buyer
         #   is still in the same state as when it was issued
         props = cust.props()
         #Debug
@@ -780,8 +782,8 @@ class SMSMockerPage(webapp2.RequestHandler):
 
 
 
-class SMSMocker(webapp2.RequestHandler):  
-    
+class SMSMocker(webapp2.RequestHandler):
+
     #Handle JSON request for record of all state tranitions
     #That the buyer and seller have undergone
     def get(self):
@@ -821,14 +823,14 @@ class SMSMocker(webapp2.RequestHandler):
             #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
             foo = type(MockData.get_buyer())
             MockData.get_buyer().process_SMS(sms)
-            sms = 'Buyer: ' + sms 
+            sms = 'Buyer: ' + sms
             status_str = MockData.get_buyer().get_status_str()
-            MockData.buyer_list.append((sms,status_str))    
+            MockData.buyer_list.append((sms,status_str))
         elif customer_type == 'seller':
             #Heisenbug. By observing the type, I avert a type error. I wish I knew why.
             bar = type(MockData.get_seller())
             MockData.get_seller().process_SMS(sms)
-            sms = 'Seller: ' + sms 
+            sms = 'Seller: ' + sms
             status_str = MockData.get_seller().get_status_str()
             MockData.seller_list.append((sms,status_str))
 
@@ -836,7 +838,7 @@ class SMSMocker(webapp2.RequestHandler):
 # Expected request parameters:
 #   'phone_number': string of exactly 10 integers
 #   'customer_type': 1 for buyer or 2 for seller
-#   'asking_price': For sellers, a string representing an integer 
+#   'asking_price': For sellers, a string representing an integer
 class AddCustomer(webapp2.RequestHandler):
     def post(self):
 
@@ -851,7 +853,7 @@ class AddCustomer(webapp2.RequestHandler):
         new_customer.name = new_customer.google_account.nickname()
         new_customer.email = new_customer.google_account.email()
         new_customer.customer_type = int(self.request.get('customer_type'))
-        
+
         #Add customer_type specific data
         if new_customer.customer_type == Customer.seller:
             seller_props = Seller()
@@ -870,7 +872,7 @@ class AddCustomer(webapp2.RequestHandler):
         # SMSHandler.send_message(new_customer.phone_number, "Please enter the code %s to verify your phone number." % new_customer.verification_hash)
         SMSHandler.send_new_verification_message(new_customer)
 
-'''END Customer manipulation handlers''' 
+'''END Customer manipulation handlers'''
 
 class VerifyPhone(webapp2.RequestHandler):
     def post(self):
@@ -927,6 +929,17 @@ class SMSWorker(webapp2.RequestHandler):
 
         send_message(to, body)
 
+class SendFeedback(webapp2.RequestHandler):
+    def post(self):
+        name = self.request.get("name")
+        email = self.request.get("email")
+        message = self.request.get("message")
+        mail.send_mail(sender="Tommy Bednar <bednata@gmail.com>",
+              to="Joel Roggeman <JoelRoggeman+SwipeMe@gmail.com>",
+              subject="Pitt SwipeMe Feedback",
+              body=name+"\n"+email+"\n"+message)
+
+
 app = webapp2.WSGIApplication([
     # Root
     ('/', LandingPage),
@@ -950,6 +963,8 @@ app = webapp2.WSGIApplication([
     # SMS Mocker for demonstration and testing
     ('/mock', SMSMockerPage),
     ('/mock/data', SMSMocker),
+
+    ('/email', SendFeedback),
 ], debug=True)
 
 def main():
