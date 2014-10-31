@@ -24,62 +24,92 @@
 		<![endif]-->
 	</head>
 	<body>
-	{% block navbar %}
-		<!-- Fixed navbar -->
-		<div class="navbar navbar-default navbar-fixed-top" role="navigation">
-			<div class="container">
-				<div class="navbar-header">
-					<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
-						<span class="sr-only">Toggle navigation</span>
-						<span class="icon-bar"></span>
-						<span class="icon-bar"></span>
-						<span class="icon-bar"></span>
-					</button>
-					<a class="navbar-brand" href="/">Swipe Me</a>
+		{% block navbar %}
+			<!-- Fixed navbar -->
+			<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+				<div class="container">
+					<div class="navbar-header">
+						<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+							<span class="sr-only">Toggle navigation</span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+							<span class="icon-bar"></span>
+						</button>
+						<a class="navbar-brand" href="/">Swipe Me</a>
+					</div>
+					<div class="navbar-collapse collapse">
+						<ul class="nav navbar-nav">
+							<li><a href="#">Buy</a></li>
+							<li><a href="#about">Sell</a></li>
+							<li><a href="#contact">Learn</a></li>
+						</ul>
+					</div><!--/.nav-collapse -->
 				</div>
-				<div class="navbar-collapse collapse">
-					<ul class="nav navbar-nav">
-						<li><a href="#">Buy</a></li>
-						<li><a href="#about">Sell</a></li>
-						<li><a href="#contact">Learn</a></li>
-					</ul>
-				</div><!--/.nav-collapse -->
 			</div>
-		</div>
-	{% endblock navbar %}
+		{% endblock navbar %}
 
 		<div class="container">
 		{% block container %}
 		{% endblock container%}
 		</div>
 
-	{% block footer %}
-		    <div class="footer">
-		        <div class="container">
-					<div id="form-content" class="modal fade" style="display: none;">
-			            <div class="modal-header">
-			                <a class="close" data-dismiss="modal">×</a>
-			                <h3>Send me a message</h3>
-			            </div>
-			            <div class="modal-body">
-			                <form class="contact" name="contact">
-			                    <label class="label" for="name">Your Name</label><br>
-			                    <input type="text" name="name" class="input-xlarge"><br>
-			                    <label class="label" for="email">Your E-mail</label><br>
-			                    <input type="email" name="email" class="input-xlarge"><br>
-			                    <label class="label" for="message">Enter a Message</label><br>
-			                    <textarea name="message" class="input-xlarge"></textarea>
-			                </form>
-			            </div>
-			            <div class="modal-footer">
-			                <input class="btn btn-success" type="submit" value="Send!" id="submit">
-			                <a href="#" class="btn" data-dismiss="modal">Cancel</a>
-			            </div>
-			        </div>
-       				<div id="thanks"><p><a data-toggle="modal" href="#form-content" class="btn btn-primary btn-large">Send us Feedback!</a></p></div>
-		        </div>
-		    </div>
-    {% endblock footer %}
+		{% block footer %}
+			<div class="footer">
+				<div id="thanks">
+					<!-- Button trigger modal -->
+					<button type="button" class="btn btn-link" data-toggle="modal" data-target="#modal_feedback">
+						Send us feedback!
+					</button>
+				</div>
+
+				<!-- Modal -->
+				<div class="modal fade" id="modal_feedback" tabindex="-1" role="dialog" aria-labelledby="feedback_title" aria-hidden="true">
+					<div class="modal-dialog">
+				    	<div class="modal-content">
+				      		<div class="modal-header">
+				        		<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+				        		<h4 class="modal-title" id="feedback_title">Tell us what you think!</h4>
+				      		</div>
+					      	<div class="modal-body">
+				      			<form class="contact" name="contact">
+				                    <label for="name">Your Name</label><br>
+				                    <input type="text" name="name" class="input-xlarge"><br>
+				                    <label for="email">Your E-mail</label><br>
+				                    <input type="email" name="email" class="input-xlarge"><br>
+				                    <label for="message">Enter a Message</label><br>
+				                    <textarea name="message" class="input-xlarge"></textarea>
+				                </form>
+					      	</div>
+						    <div class="modal-footer">
+						        <input type="submit" class="btn btn-success" value="Send!" id="submit_feedback">
+						        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">Cancel</button>
+						    </div>
+				    	</div>
+				  	</div>
+				</div>
+			</div>
+
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<script>
+	        $(document).ready(function () {
+	            $("#submit_feedback").click(function(){
+	                $.ajax({
+	                    type: "POST",
+	                    url: "/feedback", //process to mail
+	                    data: $('form.contact').serialize(),
+	                    success: function(msg){
+	                        $("#thanks").html(msg); //hide button and show thank you
+	                        $("#modal_feedback").modal('hide'); //hide popup
+	                    },
+	                    error: function(){
+	                        alert("failure");
+	                    }
+	                });
+	            });
+	        });
+	    </script>
+
+	    {% endblock footer %}
 
 
 
@@ -91,25 +121,6 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 		<!-- Include all compiled plugins (below), or include individual files as needed -->
 		<script src="js/bootstrap.min.js"></script>
-
-		<script>
-	        $(document).ready(function () {
-	            $("input#submit").click(function(){
-	                $.ajax({
-	                    type: "POST",
-	                    url: "/email", //process to mail
-	                    data: $('form.contact').serialize(),
-	                    success: function(msg){
-	                        $("#thanks").html(msg) //hide button and show thank you
-	                        $("#form-content").modal('hide'); //hide popup
-	                    },
-	                    error: function(){
-	                        alert("failure");
-	                    }
-	                });
-	            });
-	        });
-	    </script>
 		{% endblock javascript %}
 	</body>
 </html>

@@ -6,6 +6,7 @@
     <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
     <link href="../css/theme.css" rel="stylesheet">
     <link href="../css/dash.css" rel="stylesheet">
+    <link href="../css/sticky-footer-navbar.css" rel="stylesheet">
 {% endblock head_config %}
 
 {% block container %}
@@ -122,13 +123,13 @@
 			<div class="panel-body">
 				<ul>
 					{% for user in active_users %}
-						
+
 					<li>
 						{% if user.google_account %}
 						{{ user.google_account.nickname() }}
 						{% endif %}
 					</li>
-						
+
 					{% endfor %}
 				</ul>
 			</div><!--/.panel-body-->

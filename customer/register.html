@@ -7,11 +7,12 @@
     <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../css/sticky-footer-navbar.css" rel="stylesheet">
 {% endblock head_config %}
 
 {% block container %}
   <!-- Specify symbols to display for validation.-->
-  <form role="form" action="javascript:process_form()" id="register_form"  
+  <form role="form" action="javascript:process_form()" id="register_form"
   data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
   data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
   data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
@@ -19,7 +20,7 @@
   data-bv-onsuccess="on_form_valid(this,event)">
     <div class="form-group">
       <label for="customer_phone">Cell Phone Number </label>
-      <input type="tel" id="customer_phone" name="phone" 
+      <input type="tel" id="customer_phone" name="phone"
       placeholder="412-555-5555"
       data-bv-phone
       data-bv-phone-country="US"
@@ -28,7 +29,7 @@
       data-bv-notempty-message="Please enter a valid phone number.">
       <p class="help-block">
         {% if customer_type == 1 %}
-          You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall. 
+          You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall.
           You'll get a text when you're matched with a buyer.
         {% elif customer_type == 2 %}
           You'll send <em>SwipeMe</em> a text when you want to be swiped in to a dining hall.
@@ -49,7 +50,7 @@
         data-bv-greaterthan-inclusive="false"
         data-bv-greaterthan-value="0"
         data-bv-greaterthan-message="Please enter a number between 1 and 9."
-        data-bv-notempty="true" 
+        data-bv-notempty="true"
         data-bv-notempty-message="Please enter a number between 1 and 9.">
         <p class="help-block">This is how much you'll be paid to swipe someone in.</p>
       </div>
@@ -77,20 +78,20 @@
 
       //Create object with customer data to pass in post request
       form_data = {"customer_type": "{{customer_type}}"};
-      
+
       //Store phone number as string of 10 digits
       var phone_number = $('#customer_phone').val();
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
-      
+
       {% if customer_type == 2 %}
       console.log("Made it into 'swiper' portion");
-     
+
       var $price_element = $('#asking_price');
       {
         form_data.asking_price = $price_element.val();
       }
-      
+
       //If we are processing a swipee, we can insert
       // a dummy value for price.
       {% elif customer_type == 1 %}
@@ -99,7 +100,7 @@
       }
       {% endif %}
 
-      //Send form data to backend. 
+      //Send form data to backend.
       //Redirect to home screen
       $.post("add_customer",form_data, function(){
         window.location = "dash";

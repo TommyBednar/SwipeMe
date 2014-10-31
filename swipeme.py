@@ -934,11 +934,14 @@ class SendFeedback(webapp2.RequestHandler):
         name = self.request.get("name")
         email = self.request.get("email")
         message = self.request.get("message")
-        mail.send_mail(sender="Tommy Bednar <bednata@gmail.com>",
-              to="Joel Roggeman <JoelRoggeman+SwipeMe@gmail.com>",
+        email_message = mail.EmailMessage(sender="Tommy Bednar <bednata@gmail.com>",
               subject="Pitt SwipeMe Feedback",
               body=name+"\n"+email+"\n"+message)
-
+        email_message.to = "Tommy Bednar  <bednata+SwipeMe@gmail.com>"
+        email_message.send()
+        email_message.to = "Joel Roggeman <JoelRoggeman+SwipeMe@gmail.com>"
+        email_message.send()
+        self.response.out.write("Thank you for your feedback!")
 
 app = webapp2.WSGIApplication([
     # Root
@@ -964,7 +967,8 @@ app = webapp2.WSGIApplication([
     ('/mock', SMSMockerPage),
     ('/mock/data', SMSMocker),
 
-    ('/email', SendFeedback),
+    # Sends user feedback
+    ('/feedback', SendFeedback),
 ], debug=True)
 
 def main():
