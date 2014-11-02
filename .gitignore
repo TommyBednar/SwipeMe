@@ -1,4 +1,8 @@
 .vagrant
+venv/
+six.py
+twilio
+httplib2
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
