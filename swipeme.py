@@ -134,7 +134,7 @@ class Customer(ndb.Model):
             if customer.is_active():
                 active_customers.append(customer)
 
-        return customers
+        return active_customers
 
     def get_status_str(self):
         props = self.props()
@@ -610,7 +610,7 @@ class Dash(webapp2.RequestHandler):
                 'display_verification_button': customer.verified,
                 'logout_url' : users.create_logout_url(self.request.uri),
                 'active_users' : active_customers,
-                'active_user_count': active_customers.count(),
+                'active_user_count': len(active_customers),
                 'minimum_price': Customer.get_minimum_price(),
         } ))
 

@@ -122,15 +122,19 @@
 			</div>
 			<div class="panel-body">
 				<ul>
-					{% for user in active_users %}
+					{% if active_user_count == 0 %}
+					There are <strong>no</strong> active users.
+					{% else %}
+						{% for user in active_users %}
 
-					<li>
-						{% if user.google_account %}
-						{{ user.google_account.nickname() }}
-						{% endif %}
-					</li>
+						<li>
+							{% if user.google_account %}
+							{{ user.google_account.nickname() }}
+							{% endif %}
+						</li>
 
-					{% endfor %}
+						{% endfor %}
+					{% endif %}
 				</ul>
 			</div><!--/.panel-body-->
 		</div><!--/.panel-->
