@@ -1,18 +1,4 @@
-import os
 import webapp2
-import random
-
-# Appengine-specific includes
-from google.appengine.ext import ndb
-from google.appengine.api import users
-from google.appengine.api import urlfetch
-from google.appengine.api import taskqueue
-from google.appengine.api import mail
-
-# Import models from model directory
-# from models.customer import Customer
-# from models.buyer import Buyer
-# from models.seller import Seller
 
 # If you want to debug, uncomment the line below and stick it wherever you want to break
 # import pdb; pdb.set_trace();

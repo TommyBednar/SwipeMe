@@ -18,7 +18,7 @@ handlers:
 - url: /fonts
   static_dir: fonts
 - url: /customer/.*
-  script: swipeme.app
+  script: routes.app
   login: required
 - url: /.*
-  script: swipeme.app
+  script: routes.app
