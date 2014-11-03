@@ -32,10 +32,6 @@ $(document).ready(function() {
 		$("#edit_user_modal").modal();
 	});
 
-	$("#logout_user").click(function() {
-		window.location.href = "{{ logout_url }}";
-	});
-
 	$('#edit_user_form').bootstrapValidator({
 		feedbackIcons: {
 			valid: 'glyphicon glyphicon-ok',
