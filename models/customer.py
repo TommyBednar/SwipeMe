@@ -72,7 +72,7 @@ class Customer(ndb.Model):
         minimum = MAX_PRICE
 
         for customer in Customer.query():
-            if customer.customer_type == Customer.seller:
+            if customer.customer_type == Customer.seller and customer.is_active():
                 price = customer.props().asking_price
                 if price > 0 and price < minimum:
                     minimum = price
