@@ -1,5 +1,6 @@
 import os
 import webapp2
+import msg
 from google.appengine.ext import ndb
 
 class Seller(ndb.Model):
@@ -173,5 +174,3 @@ class Seller(ndb.Model):
     LOCKED:{'bye':'depart'},
     MATCHED:{'no':'depart'}
     }
-
-

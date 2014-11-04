@@ -1,5 +1,5 @@
-from controllers.mock_data import MockData
 from base_handler import *
+from models.mock_data import MockData
 
 class SMSMocker(BaseHandler):
 

@@ -1,12 +1,14 @@
 import os
 import webapp2
 import random
+import string
 from google.appengine.ext import ndb
+from google.appengine.api import taskqueue
+
 from models.buyer import Buyer
 from models.seller import Seller
 
 class Customer(ndb.Model):
-
     # 1 == buyer. 2 == seller
     customer_type = ndb.IntegerProperty()
 
@@ -151,10 +153,10 @@ class Customer(ndb.Model):
             self.put()
 
         #Debug code for SMS mocker
-        if self.key == MockData.buyer_key:
-            MockData.receive_SMS(msg=message,customer_type='buyer')
-        elif self.key == MockData.seller_key:
-            MockData.receive_SMS(msg=message,customer_type='seller')
+        if obj.key == mock_data.MockData.buyer_key:
+            models.mock_data.MockData.receive_SMS(msg=message,customer_type='buyer')
+        elif obj.key == models.mock_data.MockData.seller_key:
+            models.mock_data.MockData.receive_SMS(msg=message,customer_type='seller')
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")

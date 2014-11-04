@@ -1,5 +1,6 @@
 import os
 import webapp2
+import msg
 from google.appengine.ext import ndb
 
 class Buyer(ndb.Model):
