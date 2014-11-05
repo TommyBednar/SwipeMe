@@ -4,13 +4,13 @@ class SMSHandler(BaseHandler):
     def post(self):
         body = self.request.get('Body')
         phone = self.request.get('From')
-        customer = Customer.query(Customer.phone_number == phone)
+        customer = Customer.query(Customer.phone_number == phone).fetch(1)[0]
 
         # If the user hasn't verified their phone, don't respond?
         if not customer.verified:
             return
 
-        customer.process_SMS(customer, body)
+        customer.process_SMS(body)
 
     @staticmethod
     def send_message(to, body):

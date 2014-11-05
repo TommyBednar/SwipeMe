@@ -4,6 +4,9 @@ class Dash(BaseHandler):
     def get(self):
         customer = Customer.get_by_email(users.get_current_user().email());
 
+        if not customer:
+            self.redirect('/')
+
         active_customers = Customer.get_active_customers()
 
         verified = 'ok' if customer.verified else 'remove'
