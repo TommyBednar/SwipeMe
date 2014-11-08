@@ -148,9 +148,10 @@ class Customer(ndb.Model):
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,body):
-        taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
-#        if message:
-#            self.put()
+        if body:
+            taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
+    #        if message:
+    #            self.put()
 
 #        #Debug code for SMS mocker
 #        if self.key == mock_data.MockData.buyer_key:
