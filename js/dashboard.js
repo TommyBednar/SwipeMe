@@ -17,6 +17,11 @@ $(document).ready(function() {
 		return false;
 	});
 
+	$("#verify_user_form").submit(function() {
+		verify_user();
+		return false;
+	});
+
 	$("#edit_user_modal").on("hidden.bs.modal", function() {
 		// TODO: Doesn't work for absolutely no reason.  Does it's purpose in the console no problem.
 		$("#edit_user_form").bootstrapValidator('resetForm', true);

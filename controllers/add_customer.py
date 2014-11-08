@@ -25,14 +25,14 @@ class AddCustomer(BaseHandler):
         if new_customer.customer_type == Customer.seller:
             seller_props = Seller()
             seller_props.status = Seller.UNAVAILABLE
-            seller_props.count = 0
+            seller_props.counter = 0
             seller_props.asking_price = int(self.request.get('asking_price'))
             new_customer.seller_props = seller_props.put()
 
         else:
             buyer_props = Buyer()
             buyer_props.status = Buyer.INACTIVE
-            buyer_props.count = 0
+            buyer_props.counter = 0
             new_customer.buyer_props = buyer_props.put()
 
 
