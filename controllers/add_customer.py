@@ -23,17 +23,10 @@ class AddCustomer(BaseHandler):
 
         #Add customer_type specific data
         if new_customer.customer_type == Customer.seller:
-            seller_props = Seller()
-            seller_props.status = Seller.UNAVAILABLE
-            seller_props.counter = 0
-            seller_props.asking_price = int(self.request.get('asking_price'))
-            new_customer.seller_props = seller_props.put()
-
+            asking_price = self.request.get('asking_price')
+            new_customer.init_seller(asking_price)
         else:
-            buyer_props = Buyer()
-            buyer_props.status = Buyer.INACTIVE
-            buyer_props.counter = 0
-            new_customer.buyer_props = buyer_props.put()
+            new_customer.init_buyer()
 
 
         new_customer.put()

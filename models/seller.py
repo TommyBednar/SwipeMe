@@ -2,6 +2,7 @@ import os
 import webapp2
 import msg
 from google.appengine.ext import ndb
+from google.appengine.api import taskqueue
 
 class Seller(ndb.Model):
 

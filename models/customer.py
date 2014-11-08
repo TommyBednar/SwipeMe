@@ -147,16 +147,16 @@ class Customer(ndb.Model):
         params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
-    def send_message(self,message):
-        #Stubbed implementation
-        if message:
-            self.put()
+    def send_message(self,body):
+        taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
+#        if message:
+#            self.put()
 
-        #Debug code for SMS mocker
-        if obj.key == mock_data.MockData.buyer_key:
-            models.mock_data.MockData.receive_SMS(msg=message,customer_type='buyer')
-        elif obj.key == models.mock_data.MockData.seller_key:
-            models.mock_data.MockData.receive_SMS(msg=message,customer_type='seller')
+#        #Debug code for SMS mocker
+#        if self.key == mock_data.MockData.buyer_key:
+#            models.mock_data.MockData.receive_SMS(msg=message,customer_type='buyer')
+#        elif self.key == models.mock_data.MockData.seller_key:
+#            models.mock_data.MockData.receive_SMS(msg=message,customer_type='seller')
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")
