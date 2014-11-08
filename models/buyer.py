@@ -77,6 +77,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
         self.set_partner_key(partner.key)
+        self.enqueue_trans('decline', 30)
 
         price = partner.props().asking_price
         return msg.decide_before_price + str(price) + msg.decide_after_price
