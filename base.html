@@ -55,9 +55,10 @@
 			<div class="footer">
 				<div id="thanks">
 					<!-- Button trigger modal -->
-					<button type="button" class="btn btn-link" data-toggle="modal" data-target="#modal_feedback">
+					<button type="button" id="feedback_button" class="btn btn-link" data-toggle="modal" data-target="#modal_feedback">
 						Send us feedback!
 					</button>
+					<div id="feedback_response"></div>
 				</div>
 
 				<!-- Modal -->
@@ -69,13 +70,13 @@
 				        		<h4 class="modal-title" id="feedback_title">Tell us what you think!</h4>
 				      		</div>
 					      	<div class="modal-body">
-				      			<form class="contact" name="contact">
+				      			<form id="contact_form" class="contact" name="contact">
 				                    <label for="name">Your Name</label><br>
-				                    <input type="text" name="name" class="input-xlarge"><br>
+				                    <input type="text" name="name" class="form-control"><br>
 				                    <label for="email">Your E-mail</label><br>
-				                    <input type="email" name="email" class="input-xlarge"><br>
+				                    <input type="email" name="email" class="form-control"><br>
 				                    <label for="message">Enter a Message</label><br>
-				                    <textarea name="message" class="input-xlarge"></textarea>
+				                    <textarea name="message" class="form-control"></textarea>
 				                </form>
 					      	</div>
 						    <div class="modal-footer">
@@ -90,14 +91,21 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 		<script>
 	        $(document).ready(function () {
+				$("#modal_feedback").on('hidden.bs.modal', function() {
+					$("#contact_form")[0].reset();
+				});
+
 	            $("#submit_feedback").click(function(){
+					$("#modal_feedback").modal('hide'); //hide popup
 	                $.ajax({
 	                    type: "POST",
 	                    url: "/feedback", //process to mail
-	                    data: $('form.contact').serialize(),
+	                    data: $('#contact_form').serialize(),
 	                    success: function(msg){
-	                        $("#thanks").html(msg); //hide button and show thank you
-	                        $("#modal_feedback").modal('hide'); //hide popup
+	                        $("#feedback_button").hide();
+							$("#feedback_response").text(msg);
+							$("#feedback_response").show();
+							setTimeout(function(){$("#feedback_response").fadeOut(1000, function() {$("#feedback_button").show();})}, 3000);
 	                    },
 	                    error: function(){
 	                        alert("failure");
