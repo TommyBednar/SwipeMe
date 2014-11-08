@@ -23,7 +23,7 @@ class AddCustomer(BaseHandler):
 
         #Add customer_type specific data
         if new_customer.customer_type == Customer.seller:
-            asking_price = self.request.get('asking_price')
+            asking_price = int(self.request.get('asking_price'))
             new_customer.init_seller(asking_price)
         else:
             new_customer.init_buyer()
