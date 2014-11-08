@@ -9,4 +9,4 @@ class LandingPage(BaseHandler):
                 self.redirect("/customer/dash")
 
         template = JINJA_ENVIRONMENT.get_template("index.html")
-        self.response.write(template.render())
+        self.response.write(template.render({'show_login': True}))

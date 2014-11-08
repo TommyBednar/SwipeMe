@@ -19,7 +19,7 @@ class Dash(BaseHandler):
                     'phone_number' : customer.phone_number,
                     'verified' : verified,
                     'display_verification_button': customer.verified,
-                    'logout_url' : users.create_logout_url(self.request.uri),
+                    'logout_url' : users.create_logout_url('/'),
                     'active_users' : active_customers,
                     'active_user_count': len(active_customers),
                     'minimum_price': Customer.get_minimum_price(),
