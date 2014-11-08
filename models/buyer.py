@@ -7,7 +7,7 @@ from google.appengine.api import taskqueue
 class Buyer(ndb.Model):
 
     #Possible status values
-    INACTIVE, MATCHING, DECIDING, WAITING = range(1,5)
+    INACTIVE, MATCHING, DECIDING, WAITING, REPORTING = range(1,6)
     # The Buyer's status in the matching process
     status = ndb.IntegerProperty()
 
@@ -16,6 +16,7 @@ class Buyer(ndb.Model):
         MATCHING:'Matching',
         DECIDING:'Deciding',
         WAITING:'Waiting',
+        REPORTING: 'Reporting',
     }
 
     #Delayed requests will only execute if the counter at the time of execution
@@ -127,13 +128,14 @@ class Buyer(ndb.Model):
         #After price has been accepted, inquire if
         #seller came to swipe the buyer in.
         #If no complaint after 30 seconds, assume success
+        self.status = Buyer.REPORTING
         self.get_parent().enqueue_trans('success',30)
 
         return msg.check
 
     @state_trans
     def on_complain(self):
-        assert self.status == Buyer.WAITING
+        assert self.status == Buyer.REPORTING
 
         #If buyer sends text signaling that seller
         #never showed, restart matching process
@@ -147,7 +149,7 @@ class Buyer(ndb.Model):
 
     @state_trans
     def on_success(self):
-        assert self.status == Buyer.WAITING
+        assert self.status == Buyer.REPORTING
 
         #If the transaction occured, deactivate the buyer
         #And perform end-of-transaction code on the seller
@@ -159,7 +161,7 @@ class Buyer(ndb.Model):
 
     @state_trans
     def on_retry(self):
-        assert self.status == Buyer.DECIDING or self.status == Buyer.WAITING
+        assert self.status == Buyer.DECIDING or self.status == Buyer.WAITING or self.status == Buyer.REPORTING
 
         #If the seller leaves while the buyer is deciding,
         #let the buyer know and retry the matching process
@@ -183,10 +185,14 @@ class Buyer(ndb.Model):
     'retry': on_retry,
     },
     WAITING:{
-    'complain':on_complain,
     'check':on_check,
+    'retry': on_retry,
+    },
+    REPORTING:{
+    'complain':on_complain,
     'success':on_success,
-    'retry': on_retry,},
+    'retry': on_retry,
+    },
     }
 
     # For each state, a mapping from words that the system recognizes to request strings
@@ -194,5 +200,6 @@ class Buyer(ndb.Model):
     INACTIVE:{'market':'request'},
     MATCHING:{},
     DECIDING:{'yes':'accept' , 'no':'decline'},
-    WAITING:{'no':'complain', 'yes':'success'},
+    WAITING:{},
+    REPORTING:{'yes':'success', 'no':'complain'}
     }
