@@ -16,6 +16,17 @@ class Seller(ndb.Model):
         MATCHED:'Matched',
     }
 
+    is_request_str_valid = {
+        'depart': True,
+        'enter': True,
+        'lock': True,
+        'match': True,
+        'noshow': True,
+        'timeout': True,
+        'transact': True,
+        'unlock': True,
+    }
+
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
     #The amount that this seller will charge
@@ -64,7 +75,7 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        self.get_parent().enqueue_trans('timeout',1000)
+        self.get_parent().enqueue_trans('timeout',30)
 
         return msg.enter
 
@@ -80,6 +91,7 @@ class Seller(ndb.Model):
             self.get_partner().enqueue_trans('retry', 0)
             self.set_partner_key(None)
 
+        self.is_request_str_valid['timeout'] = False
         self.status = Seller.UNAVAILABLE
         return msg.depart
 
@@ -123,6 +135,8 @@ class Seller(ndb.Model):
         #Tell the seller to swipe the buyer in
         self.status = Seller.MATCHED
 
+        self.is_request_str_valid['timeout'] = False
+
         return msg.match
 
     @state_trans
@@ -134,6 +148,8 @@ class Seller(ndb.Model):
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
 
+        self.is_request_str_valid['timeout'] = False
+
         return msg.noshow
 
     @state_trans
@@ -144,6 +160,8 @@ class Seller(ndb.Model):
         #Make the seller opt in to selling again
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
+
+        self.is_request_str_valid['timeout'] = False
 
         return msg.transact
 

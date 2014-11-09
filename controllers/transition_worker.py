@@ -18,7 +18,9 @@ class TransitionWorker(webapp2.RequestHandler):
         logging.info(props)
         logging.info(request_str)
         logging.info(string.atoi(self.request.get('counter')))
+        logging.info(props.is_request_str_valid[request_str])
         #End debug
-        if props.counter == string.atoi(self.request.get('counter')):
+
+        if props.is_request_str_valid[request_str]:
             cust.execute_request(request_str)
 
