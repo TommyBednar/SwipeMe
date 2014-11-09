@@ -4,6 +4,7 @@ import random
 import string
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
+from google.appengine.api import memcache
 
 from models.buyer import Buyer
 from models.seller import Seller
@@ -51,9 +52,22 @@ class Customer(ndb.Model):
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
-            return self.buyer_props.get()
+            cached_buyer_props = memcache.get(str(self.buyer_props))
+            if cached_buyer_props:
+                return cached_buyer_props
+            else:
+                datastore_buyer_props = self.buyer_props.get()
+                memcache.add(str(self.buyer_props), datastore_buyer_props, 10)
+                return datastore_buyer_props
+
         elif self.customer_type == Customer.seller:
-            return self.seller_props.get()
+            cached_seller_props = memcache.get(str(self.seller_props))
+            if cached_seller_props:
+                return cached_seller_props
+            else:
+                datastore_seller_props = self.seller_props.get()
+                memcache.add(str(self.seller_props), datastore_seller_props, 60)
+                return datastore_seller_props
 
     def is_active(self):
         return (self.props().status > 1)
@@ -127,6 +141,7 @@ class Customer(ndb.Model):
         seller_props.counter = 0
         seller_props.parent_key = self.key
         self.seller_props = seller_props.put()
+        memcache.add(str(self.seller_props), seller_props, 10)
 
         self.put()
 
@@ -138,6 +153,7 @@ class Customer(ndb.Model):
         buyer_props.counter = 0
         buyer_props.parent_key = self.key
         self.buyer_props = buyer_props.put()
+        memcache.add(str(self.buyer_props), buyer_props, 10)
 
         self.put()
 
