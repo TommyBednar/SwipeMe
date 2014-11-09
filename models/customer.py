@@ -167,8 +167,9 @@ class Customer(ndb.Model):
         if body:
             taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
 
-    def request_clarification(self):
-        self.send_message("Didn't catch that, bro.")
+    def request_clarification(self, valid_words, first_word):
+        self.send_message("Sorry " + first_word + " is not a valid word.\n Try one of the following: "
+            + ", ".join(valid_words))
 
     def execute_request(self, request_str, **kwargs):
 
@@ -183,7 +184,7 @@ class Customer(ndb.Model):
         first_word = string.lower(text.split()[0])
         props = self.props()
         if first_word not in props.valid_words[props.status]:
-            self.request_clarification()
+            self.request_clarification(props.valid_words[props.status], first_word)
             return
 
         request_str = props.valid_words[props.status][first_word]
