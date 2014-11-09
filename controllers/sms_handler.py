@@ -1,10 +1,19 @@
 from base_handler import *
+from google.appengine.api import memcache
 
 class SMSHandler(BaseHandler):
     def post(self):
         body = self.request.get('Body')
         phone = self.request.get('From')[2:]
-        customer = Customer.query(Customer.phone_number == phone).fetch(1)[0]
+
+        customer = memcache.get(phone)
+
+        if not customer:
+            customer = Customer.query(Customer.phone_number == phone).fetch(1)[0]
+            if customer.customer_type == Customer.buyer:
+                memcache.add(phone, customer, 10)
+            else:
+                memcache.add(phone, customer, 60)
 
         if not customer:
             SMSHandler.send_message(phone, "Sorry, this phone number isn't registered.")
