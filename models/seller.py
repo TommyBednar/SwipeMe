@@ -135,8 +135,6 @@ class Seller(ndb.Model):
         #Tell the seller to swipe the buyer in
         self.status = Seller.MATCHED
 
-        self.is_request_str_valid['timeout'] = False
-
         return msg.match
 
     @state_trans
