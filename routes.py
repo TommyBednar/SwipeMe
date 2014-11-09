@@ -24,8 +24,8 @@ app = webapp2.WSGIApplication([
     ('/sms', 'controllers.sms_handler.SMSHandler'),
 
     # SMS Mocker for demonstration and testing
-#    ('/mock', 'controllers.sms_mocker_page.SMSMockerPage'),
- #   ('/mock/data', 'controllers.sms_mocker.SMSMocker'),
+    ('/mock', 'controllers.sms_mocker_page.SMSMockerPage'),
+    ('/mock/data', 'controllers.sms_mocker.SMSMocker'),
 
     # Sends user feedback
     ('/feedback', 'controllers.send_feedback.SendFeedback'),

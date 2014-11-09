@@ -76,3 +76,12 @@ function send(type)
 	});
 }
 
+function hook(command)
+{
+	$.ajax({
+		  type: "POST",
+		  url: "/mock",
+		  data: JSON.stringify({'command':command}),
+		  dataType: "application/JSON"
+	})
+}

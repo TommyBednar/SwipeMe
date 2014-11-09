@@ -52,4 +52,3 @@ class SMSMocker(BaseHandler):
             sms = 'Seller: ' + sms
             status_str = MockData.get_seller().get_status_str()
             MockData.seller_list.append((sms,status_str))
-
