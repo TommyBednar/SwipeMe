@@ -150,14 +150,6 @@ class Customer(ndb.Model):
     def send_message(self,body):
         if body:
             taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
-    #        if message:
-    #            self.put()
-
-#        #Debug code for SMS mocker
-#        if self.key == mock_data.MockData.buyer_key:
-#            models.mock_data.MockData.receive_SMS(msg=message,customer_type='buyer')
-#        elif self.key == models.mock_data.MockData.seller_key:
-#            models.mock_data.MockData.receive_SMS(msg=message,customer_type='seller')
 
     def request_clarification(self):
         self.send_message("Didn't catch that, bro.")

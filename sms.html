@@ -17,6 +17,12 @@
 {% block container %}
 <!-- Insert Bootstrap formatted schnozz -->
 	<div class="row" id="control">
+		<form role="form" action="javascript:hook('on')">
+			<button type="submit" class="btn btn-info">Hook!</button>
+		</form>
+		<form role="form" action="javascript:hook('off')">
+			<button type="submit" class="btn btn-info">Unhook!</button>
+		</form>
 		<form role="form" action="javascript:refresh()">
 			<button type="submit" class="btn btn-info">Refresh</button>
 		</form>
