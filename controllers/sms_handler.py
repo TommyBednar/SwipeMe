@@ -9,20 +9,22 @@ class SMSHandler(BaseHandler):
         customer = memcache.get(phone)
 
         if not customer:
-            customer = Customer.query(Customer.phone_number == phone).fetch(1)[0]
-            if customer.customer_type == Customer.buyer:
-                memcache.add(phone, customer, 10)
+            customer_list = Customer.query(Customer.phone_number == phone).fetch(1)
+            if len(customer_list) == 0:
+                SMSHandler.send_message(phone, "Sorry, this phone number isn't registered.")
             else:
-                memcache.add(phone, customer, 60)
+                customer = customer_list[0]
 
-        if not customer:
-            SMSHandler.send_message(phone, "Sorry, this phone number isn't registered.")
-        else:
-            # If the user hasn't verified their phone, don't respond?
-            if not customer.verified:
-                SMSHandler.send_message(phone, "Sorry, this number isn't verified.")
-            else:
-                customer.process_SMS(body)
+                if customer.customer_type == Customer.buyer:
+                    memcache.add(phone, customer, 10)
+                else:
+                    memcache.add(phone, customer, 60)
+
+                # If the user hasn't verified their phone, don't respond?
+                if not customer.verified:
+                    SMSHandler.send_message(phone, "Sorry, this number isn't verified.")
+                else:
+                    customer.process_SMS(body)
 
     @staticmethod
     def send_message(to, body):
