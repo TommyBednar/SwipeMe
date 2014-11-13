@@ -160,8 +160,10 @@ class Customer(ndb.Model):
     '''Methods to process and route SMS commands'''
 
     def enqueue_trans(self,request_str,delay):
-        self.props().is_request_str_valid[request_str] = True
-        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
+        props = self.props()
+        props.is_request_str_valid[request_str] = True
+        props.put()
+        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(props.counter)}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,body):
