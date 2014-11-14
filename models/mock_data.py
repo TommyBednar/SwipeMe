@@ -1,5 +1,4 @@
 import webapp2
-import logging
 
 from google.appengine.ext import ndb
 
@@ -7,17 +6,15 @@ from models.customer import Customer
 from models.buyer import Buyer
 from models.seller import Seller
 
-
 class MockData(object):
     #define keys that will specify the buyer and seller
-    buyer_key = ndb.Key(Customer,'3304029937')
+    buyer_key = ndb.Key(Customer,'3308675309')
     seller_key = ndb.Key(Customer,'4128675309')
     buyer_list = []
     seller_list = []
 
     @staticmethod
     def receive_SMS(msg,customer_type):
-        logging.info("Made it into the hook!")
         if msg:
             msg = 'SwipeMe: ' + msg
         if customer_type == 'buyer':

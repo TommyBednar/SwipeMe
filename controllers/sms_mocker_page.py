@@ -26,7 +26,7 @@ class SMSMockerPage(BaseHandler):
                     MockData.receive_SMS(msg=body,customer_type='buyer')
                 elif self.customer_type == self.seller:
                     MockData.receive_SMS(msg=body,customer_type='seller')
-            monkey = hook
+            monkey = hook        
 
         elif command == 'off':
             def unhook(self,body):
