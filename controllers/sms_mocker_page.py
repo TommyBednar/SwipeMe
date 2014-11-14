@@ -30,7 +30,8 @@ class SMSMockerPage(BaseHandler):
 
         elif command == 'off':
             def unhook(self,body):
-                taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
+                if body:
+                    taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
             monkey = unhook
 
         if monkey:
