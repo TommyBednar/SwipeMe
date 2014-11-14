@@ -2,6 +2,7 @@ import os
 import webapp2
 import random
 import string
+import logging
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
@@ -52,22 +53,9 @@ class Customer(ndb.Model):
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
-            cached_buyer_props = memcache.get(str(self.buyer_props))
-            if cached_buyer_props:
-                return cached_buyer_props
-            else:
-                datastore_buyer_props = self.buyer_props.get()
-                memcache.add(str(self.buyer_props), datastore_buyer_props, 10)
-                return datastore_buyer_props
-
+            return self.buyer_props.get()
         elif self.customer_type == Customer.seller:
-            cached_seller_props = memcache.get(str(self.seller_props))
-            if cached_seller_props:
-                return cached_seller_props
-            else:
-                datastore_seller_props = self.seller_props.get()
-                memcache.add(str(self.seller_props), datastore_seller_props, 60)
-                return datastore_seller_props
+            return self.seller_props.get()
 
     def is_active(self):
         return (self.props().status > 1)
@@ -178,7 +166,15 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        message = possible_transitions[request_str](props, **kwargs)
+        if request_str in possible_transitions:
+            message = possible_transitions[request_str](props, **kwargs)
+        else:
+            logging.error('invalid request string')
+            logging.error(request_str)
+            logging.error(self.customer_type_str())
+            logging.error(self.get_status_str())
+            logging.error(props.transitions[props.status])
+            message = None
 
         self.send_message(message)
 

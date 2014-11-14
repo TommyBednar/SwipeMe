@@ -29,7 +29,7 @@ class SMSMocker(BaseHandler):
         MockData.buyer_list = []
         MockData.seller_list = []
 
-        q = Queue(name='delay-queue')
+        q = taskqueue.Queue(name='delay-queue')
         q.purge()
 
     #Handle mocked SMS sent by the buyer or the seller
