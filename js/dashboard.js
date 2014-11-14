@@ -80,9 +80,9 @@ function update_user() {
 
 	$.post("/customer/dash/edit", post_data, function(data) {
 		$("#name").text(name);
-		$("#phone_number").text(phone);
 
 		if(data.updated_phone) {
+			$("#phone_number").text(phone);
 			$("#verified").removeClass("glyphicon-ok").addClass("glyphicon-remove");
 			$("#verify_user_button").show();
 		}

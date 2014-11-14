@@ -10,6 +10,7 @@ class Edit(BaseHandler):
 
         name = self.request.get('name')
         phone_number = self.request.get('phone_number')
+        phone_number = ''.join(x for x in phone_number if x.isdigit())
 
         if name:
             customer.name = name
