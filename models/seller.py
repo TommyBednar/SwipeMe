@@ -60,12 +60,8 @@ class Seller(ndb.Model):
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
-            self.put()
-            # update memcache
-            if memcache.get(str(self.key)):
-                memcache.set(key=str(self.key), value=self)
-            else:
-                memcache.add(str(self.key), self, 60)
+            key = self.put()
+            memcache.set(str(key), self, 10)
             #And store the Customer
             self.get_parent().put()
             return message
@@ -81,7 +77,7 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        self.get_parent().enqueue_trans('timeout',30)
+        self.get_parent().enqueue_trans('timeout',1000)
 
         return msg.enter
 

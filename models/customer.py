@@ -2,6 +2,7 @@ import os
 import webapp2
 import random
 import string
+import logging
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
@@ -160,8 +161,11 @@ class Customer(ndb.Model):
     '''Methods to process and route SMS commands'''
 
     def enqueue_trans(self,request_str,delay):
-        self.props().is_request_str_valid[request_str] = True
-        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
+        props = self.props()
+        props.is_request_str_valid[request_str] = True
+        props_key = props.put()
+        memcache.set(str(props_key), props, 10)
+        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(props.counter)}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,body):
@@ -176,7 +180,15 @@ class Customer(ndb.Model):
 
         props = self.props()
         possible_transitions = props.transitions[props.status]
-        message = possible_transitions[request_str](props, **kwargs)
+        if request_str in possible_transitions:
+            message = possible_transitions[request_str](props, **kwargs)
+        else:
+            logging.error('invalid request string')
+            logging.error(request_str)
+            logging.error(self.customer_type_str())
+            logging.error(self.get_status_str())
+            logging.error(props.transitions[props.status])
+            message = None
 
         self.send_message(message)
 

@@ -1,10 +1,12 @@
 import webapp2
+import logging
 
 from google.appengine.ext import ndb
 
 from models.customer import Customer
 from models.buyer import Buyer
 from models.seller import Seller
+
 
 class MockData(object):
     #define keys that will specify the buyer and seller

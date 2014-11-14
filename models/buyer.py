@@ -3,6 +3,7 @@ import webapp2
 import msg
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
+from google.appengine.api import memcache
 
 class Buyer(ndb.Model):
 
@@ -61,11 +62,8 @@ class Buyer(ndb.Model):
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
-            self.put()
-            if memcache.get(str(self.key)):
-                memcache.set(key=str(self.key), value=self)
-            else:
-                memcache.add(str(self.key), self, 60)
+            key = self.put()
+            memcache.set(str(key), self, 10)
             #And store the Customer
             self.get_parent().put()
             return message
@@ -93,7 +91,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
         self.set_partner_key(partner.key)
-        self.enqueue_trans('decline', 30)
+        self.get_parent().enqueue_trans('decline', 30)
 
         price = partner.props().asking_price
         return msg.decide_before_price + str(price) + msg.decide_after_price
