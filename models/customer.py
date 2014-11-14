@@ -53,9 +53,22 @@ class Customer(ndb.Model):
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
-            return self.buyer_props.get()
+            cached_buyer_props = memcache.get(str(self.buyer_props))
+            if cached_buyer_props:
+                return cached_buyer_props
+            else:
+                datastore_buyer_props = self.buyer_props.get()
+                memcache.add(str(self.buyer_props), datastore_buyer_props, 10)
+                return datastore_buyer_props
+
         elif self.customer_type == Customer.seller:
-            return self.seller_props.get()
+            cached_seller_props = memcache.get(str(self.seller_props))
+            if cached_seller_props:
+                return cached_seller_props
+            else:
+                datastore_seller_props = self.seller_props.get()
+                memcache.add(str(self.seller_props), datastore_seller_props, 60)
+                return datastore_seller_props
 
     def is_active(self):
         return (self.props().status > 1)
@@ -150,7 +163,8 @@ class Customer(ndb.Model):
     def enqueue_trans(self,request_str,delay):
         props = self.props()
         props.is_request_str_valid[request_str] = True
-        props.put()
+        props_key = props.put()
+        memcache.set(str(props_key), props, 10)
         params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(props.counter)}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 

@@ -3,6 +3,7 @@ import webapp2
 import msg
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
+from google.appengine.api import memcache
 
 class Seller(ndb.Model):
 
@@ -59,7 +60,8 @@ class Seller(ndb.Model):
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
-            self.put()
+            key = self.put()
+            memcache.set(str(key), self, 10)
             #And store the Customer
             self.get_parent().put()
             return message
