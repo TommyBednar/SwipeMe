@@ -71,7 +71,7 @@ class Customer(ndb.Model):
                 return datastore_seller_props
 
     def is_active(self):
-        if self.customer_type == Customer.SELLER:
+        if self.customer_type == Customer.seller:
             return (self.props().status > 1)
         else:
             return false
