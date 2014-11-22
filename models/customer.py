@@ -178,17 +178,22 @@ class Customer(ndb.Model):
             + ", ".join(valid_words))
 
     def execute_request(self, request_str, **kwargs):
-
         props = self.props()
         possible_transitions = props.transitions[props.status]
+
         if request_str in possible_transitions:
+            logging.info('valid transition')
+            logging.info('request string: ' + request_str)
+            logging.info('customer type: ' + self.customer_type_str())
+            logging.info('customer status: ' + self.get_status_str())
+            logging.info('transitions: ' + str(props.transitions[props.status]))
             message = possible_transitions[request_str](props, **kwargs)
         else:
             logging.error('illegal transition')
             logging.error('request string: ' + request_str)
             logging.error('customer type: ' + self.customer_type_str())
             logging.error('customer status: ' + self.get_status_str())
-            logging.error('transitions: ' + props.transitions[props.status])
+            logging.error('transitions: ' + str(props.transitions[props.status]))
             message = None
 
         self.send_message(message)
