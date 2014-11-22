@@ -69,22 +69,18 @@ $(document).ready(function() {
 
 function update_user() {
 	var name = $("#edit_user_name").val();
-	var phone = $("#edit_user_phone").val();
 
 	$("#edit_user_modal").modal('hide');
 
 	var post_data = {
 		'name': name,
-		'phone_number': phone
 	};
 
 	$.post("/customer/dash/edit", post_data, function(data) {
 		$("#name").text(name);
 
-		if(data.updated_phone) {
-			$("#phone_number").text(phone);
-			$("#verified").removeClass("glyphicon-ok").addClass("glyphicon-remove");
-			$("#verify_user_button").show();
+		if(data.updated_name) {
+			$("#name").text(phone);
 		}
 	});
 }
