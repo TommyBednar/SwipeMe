@@ -20,6 +20,10 @@ class Edit(BaseHandler):
 
         if phone_number and re.compile("^[0-9]{10}$").match(phone_number) and phone_number != customer.phone_number:
             # Temporarily store the old phone number
+            if phone_number == swipeme_globals.PHONE_NUMBER or phone_number == '2162424434':
+                self.response.out.write(json.dumps({'updated_phone': false}))
+                return
+            
             old_phone = customer.phone_number
             updated_phone = True
             customer.phone_number = phone_number

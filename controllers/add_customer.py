@@ -12,6 +12,11 @@ class AddCustomer(BaseHandler):
         #TODO: check if user already exists
 
         phone = self.request.get('phone_number')
+
+        # Don't be a jerk and create an infinite loop of messages please
+        if phone == swipeme_globals.PHONE_NUMBER or phone == '2162424434':
+            self.redirect('/')
+
         new_customer = Customer(key=Customer.create_key(phone))
 
         new_customer.phone_number = phone
