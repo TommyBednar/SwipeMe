@@ -184,11 +184,11 @@ class Customer(ndb.Model):
         if request_str in possible_transitions:
             message = possible_transitions[request_str](props, **kwargs)
         else:
-            logging.error('invalid request string')
-            logging.error(request_str)
-            logging.error(self.customer_type_str())
-            logging.error(self.get_status_str())
-            logging.error(props.transitions[props.status])
+            logging.error('illegal transition')
+            logging.error('request string: ' + request_str)
+            logging.error('customer type: ' + self.customer_type_str())
+            logging.error('customer status: ' + self.get_status_str())
+            logging.error('transitions: ' + props.transitions[props.status])
             message = None
 
         self.send_message(message)

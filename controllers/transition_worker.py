@@ -19,12 +19,19 @@ class TransitionWorker(webapp2.RequestHandler):
         logging.info(props.is_request_str_valid[request_str])
         #End debug
 
-        if request_str in props.transitions[props.status] and props.is_request_str_valid[request_str]:
-            cust.execute_request(request_str)
+        if request_str not in props.transitions[props.status]:
+            logging.warning('requested transition not possible')
+            logging.warning('request string: ' + request_str)
+            logging.warning('customer type: ' + cust.customer_type_str())
+            logging.warning('customer status: ' + cust.get_status_str())
+            logging.warning('transitions: ' + props.transitions[props.status])
+        elif not props.is_request_str_valid[request_str]:
+            logging.info('stale transition')
+            logging.info('request string: ' + request_str)
+            logging.info('customer type: ' + cust.customer_type_str())
+            logging.info('customer status: ' + cust.get_status_str())
+            logging.info('transitions: ' + props.transitions[props.status])
         else:
-            logging.error('invalid request string')
-            logging.error(request_str)
-            logging.error(cust.customer_type_str())
-            logging.error(cust.get_status_str())
-            logging.error(props.transitions[props.status])
+            cust.execute_request(request_str)
+
 
