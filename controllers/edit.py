@@ -2,6 +2,7 @@ from base_handler import *
 from controllers.sms_handler import SMSHandler
 
 from google.appengine.ext import ndb
+from google.appengine.api import memcache
 
 class Edit(BaseHandler):
     def post(self):

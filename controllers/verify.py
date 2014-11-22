@@ -1,4 +1,5 @@
 from base_handler import *
+from google.appengine.api import memcache
 
 class Verify(BaseHandler):
     def post(self):
