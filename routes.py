@@ -13,7 +13,6 @@ app = webapp2.WSGIApplication([
     ('/customer/dash', 'controllers.dash.Dash'),
     ('/customer/dash/edit', 'controllers.edit.Edit'),
     ('/customer/dash/verify', 'controllers.verify.Verify'),
-    ('/customer/verify', 'controllers.verify_phone.VerifyPhone'),
 
     # Queue workers
     ('/q/trans', 'controllers.transition_worker.TransitionWorker'),

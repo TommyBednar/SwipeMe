@@ -12,6 +12,7 @@ class SMSHandler(BaseHandler):
             customer_list = Customer.query(Customer.phone_number == phone).fetch(1)
             if len(customer_list) == 0:
                 SMSHandler.send_message(phone, "Sorry, this phone number isn't registered.")
+                return
             else:
                 customer = customer_list[0]
 
