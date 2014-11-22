@@ -51,7 +51,7 @@ class MockData(object):
     def make_buyer():
         buyer = Customer(key=MockData.buyer_key)
         buyer.init_buyer()
-        buyer.phone_number = '3304029937'
+        buyer.phone_number = '3308675309'
         buyer.put()
 
     #Make seller with minimum necessary attributes
