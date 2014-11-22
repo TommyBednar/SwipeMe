@@ -74,7 +74,7 @@ class Customer(ndb.Model):
         if self.customer_type == Customer.seller:
             return (self.props().status > 1)
         else:
-            return false
+            return False
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
