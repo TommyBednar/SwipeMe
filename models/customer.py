@@ -139,7 +139,6 @@ class Customer(ndb.Model):
         seller_props = Seller()
         seller_props.asking_price = price
         seller_props.status = Seller.UNAVAILABLE
-        seller_props.counter = 0
         seller_props.parent_key = self.key
         self.seller_props = seller_props.put()
         memcache.add(str(self.seller_props), seller_props, 10)
@@ -151,7 +150,6 @@ class Customer(ndb.Model):
 
         buyer_props = Buyer()
         buyer_props.status = Buyer.INACTIVE
-        buyer_props.counter = 0
         buyer_props.parent_key = self.key
         self.buyer_props = buyer_props.put()
         memcache.add(str(self.buyer_props), buyer_props, 10)
@@ -165,7 +163,7 @@ class Customer(ndb.Model):
         props.is_request_str_valid[request_str] = True
         props_key = props.put()
         memcache.set(str(props_key), props, 10)
-        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(props.counter)}
+        params = {'key':self.key.urlsafe(),'request_str':request_str}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,body):
@@ -194,7 +192,7 @@ class Customer(ndb.Model):
 
     def process_SMS(self,text):
         #Grab the first word of the SMS
-        first_word = string.lower(text.split()[0])
+        first_word = text.strip().split()[0].lower()
         props = self.props()
         if first_word not in props.valid_words[props.status]:
             self.request_clarification(props.valid_words[props.status], first_word)
