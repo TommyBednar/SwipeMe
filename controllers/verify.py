@@ -16,7 +16,7 @@ class Verify(BaseHandler):
             if customer.verification_hash == verification_code.strip().upper():
                 customer.verified = True
                 customer.put()
-                memcache.add(customer.phone, customer, 60 * 60)
+                memcache.add(customer.phone_number, customer, 60 * 60)
 
                 success = True
 
