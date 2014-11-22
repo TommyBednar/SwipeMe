@@ -20,11 +20,11 @@ class SMSHandler(BaseHandler):
                 else:
                     memcache.add(phone, customer, 60 * 60)
 
-                # If the user hasn't verified their phone, don't respond?
-                if not customer.verified:
-                    SMSHandler.send_message(phone, "Sorry, this number isn't verified.")
-                else:
-                    customer.process_SMS(body)
+        # If the user hasn't verified their phone, don't respond?
+        if not customer.verified:
+            SMSHandler.send_message(phone, "Sorry, this number isn't verified.")
+        else:
+            customer.process_SMS(body)
 
     @staticmethod
     def send_message(to, body):
