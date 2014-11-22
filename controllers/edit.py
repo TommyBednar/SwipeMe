@@ -18,7 +18,7 @@ class Edit(BaseHandler):
             customer.put()
 
         # Update Datastore
-        memcache.add(customer.phone, customer, 60 * 60)
+        memcache.add(customer.phone_number, customer, 60 * 60)
 
         return_values = {
             'updated_name': updated_name,
