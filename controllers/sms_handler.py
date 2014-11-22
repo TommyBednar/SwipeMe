@@ -16,9 +16,9 @@ class SMSHandler(BaseHandler):
                 customer = customer_list[0]
 
                 if customer.customer_type == Customer.buyer:
-                    memcache.add(phone, customer, 10)
+                    memcache.add(phone, customer, 10 * 60)
                 else:
-                    memcache.add(phone, customer, 60)
+                    memcache.add(phone, customer, 60 * 60)
 
                 # If the user hasn't verified their phone, don't respond?
                 if not customer.verified:
