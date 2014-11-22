@@ -36,12 +36,6 @@ class Seller(ndb.Model):
     parent_key = ndb.KeyProperty(kind='Customer')
     #The key of the buyer to which this seller has been matched
 
-    #Delayed requests will only execute if the counter at the time of execution
-    #is the same as the counter at the time the request was created.
-    counter = ndb.IntegerProperty()
-    #Arbitrary maximum value for timeout counter
-    max_counter = 1000
-
     def get_parent(self):
         return self.parent_key.get()
 
@@ -55,8 +49,6 @@ class Seller(ndb.Model):
     #In every state transition method,
     def state_trans(func):
         def decorated(self, *args, **kwargs):
-            #Increment the counter,
-            self.counter = (self.counter + 1) % Seller.max_counter
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
