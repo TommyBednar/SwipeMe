@@ -1,6 +1,8 @@
 from base_handler import *
 from controllers.sms_handler import SMSHandler
 
+from google.appengine.ext import ndb
+
 class Edit(BaseHandler):
     def post(self):
         self.response.headers['Content-Type'] = 'application/json'
@@ -14,14 +16,25 @@ class Edit(BaseHandler):
 
         if name:
             customer.name = name
+            customer.put()
 
         if phone_number and re.compile("^[0-9]{10}$").match(phone_number) and phone_number != customer.phone_number:
+            # Temporarily store the old phone number
+            old_phone = customer.phone_number
             updated_phone = True
             customer.phone_number = phone_number
             customer.verified = False
+            # Store new customer
+            # This creates an entirely new datastore object
+            # since we index by phone
+            customer.put()
+            # Delete the old, stale entry
+            ndb.delete(old_phone)
+            memcache.delete(old_phone)
             SMSHandler.send_new_verification_message(customer)
 
-        customer.put()
+        # Update Datastore
+        memcache.add(customer.phone, customer, 60 * 60)
 
         return_values = {
             'updated_phone': updated_phone,
