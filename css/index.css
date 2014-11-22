@@ -1,13 +1,8 @@
 h1 {
 	margin-bottom: 30px;
-}
-#user-select{
-	margin-bottom: 30px
-}
-.user-description{
-	max-width: 400px
-	margin: auto;
-}
-.col-md-6 {
 	text-align: center;
+}
+
+.col-md-6{
+	margin-bottom: 10px;
 }

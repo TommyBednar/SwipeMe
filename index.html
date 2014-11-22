@@ -7,50 +7,39 @@
 {% endblock head_config %}
 
 {% block container %}
-	<div id="header">
 		<div class="row">
-			<h1>Pitt Dining Halls on Your Terms</h1>
+			<h1>It's Uber for Market Swipes
+			<br><small>We use texts to match people who want to sell swipes with people who want swiped in.</small></h1>
 		</div>
-		<div class="row" id="customer-select">
-			<div class="col-md-6">
-				<div class="customer-description">
-					<h2>Get Swiped In</h2>
-					<p class="lead">Text <em>Swipe Me</em> when you want to eat at Market or The Perch.
-					Someone will come to swipe you in.</p>
-					<a href="customer/register?customer_type=1" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
+		
+		<div class="row">
+			<div class="col-md-9">
+				<h3>How Does It Work?</h3>
+				<ol>
+					<li>Seller sets her asking price on the SwipeMe website.</li> 
+					<li>Seller "checks in" by sending a text to SwipeMe when she goes to Market.</li>
+					<li>Buyer sends a text to SwipeMe when he wants swiped in.</li> 
+					<li>SwipeMe matches him with the seller in Market with the lowest asking price.</li> 
+					<li>If the buyer accepts the price, then the seller gets a text telling her to find the buyer and swipe him in.</li> 
+					<li>The buyer pays in cash.</li>
+				</ol>
+			</div>
+			<div class="col-md-3">
+				<h3>Register with Google</h3>
+				<div class="row">
+					<div class="col-md-6" class="register">
+						<a href="customer/register?customer_type=1" class="btn btn-lg btn-primary btn-lg center-block" role="button">Buyers</a>
+					</div>
+					<div class="col-md-6" class="register">
+						<a href="customer/register?customer_type=2" class="btn btn-lg btn-primary btn-lg center-block" role="button">Sellers</a>
+					</div>
 				</div>
 			</div>
-			<div class="col-md-6">
-				<div class="customer-description">
-					<h2>Sell Your Swipes</h2>
-					<p class="lead">Name a price and text <em>Swipe Me</em> when you're in Market or The Perch.
-					We'll text you when someone wants swiped in.</p>
-					<a href="customer/register?customer_type=2" class="btn btn-lg btn-primary btn-lg" role="button">Register with Google</a>
-				</div>
-			</div>
 		</div>
-	</div>
 	<div class="content">
 		<div class="row">
-			<div class="col-md-6">
-				<h3>How Does It Work?</h3>
-				<p>Accusamus mollit blog ullamco. Squid umami kitsch sint accusamus. Non hella adipisicing eu selvage twee gastropub. XOXO Shoreditch before they sold out literally DIY, fanny pack Bushwick. Pug voluptate officia gastropub. Sustainable post-ironic est biodiesel Brooklyn, ad salvia fugiat adipisicing anim jean shorts. Tattooed tousled cardigan Tumblr, asymmetrical +1 before they sold out.</p>
-				<button type="button" class="btn btn-lg btn-info btn-lg">Learn More</button>
-			</div>
-			<div class="col-md-6">
-				<h3>At a Glance</h3>
-				<table class="table">
-					<tr>
-						<td>Dining Hall</td><td>Available Swipers</td><td>Current Price</td>
-					</tr>
-					<tr>
-						<td>Market Central</td><td>6</td><td>$4</td></tr>
-					</tr>
-					<tr>
-						<td>The Perch</td><td>3</td><td>$5</td></tr>
-					</tr>
-				</table>
-			</div>
+
+
 		</div>
 	</div>
 {% endblock container %}
