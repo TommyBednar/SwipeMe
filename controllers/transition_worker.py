@@ -1,8 +1,7 @@
 from base_handler import *
 
 #Expected payload: {'key':key of the customer undergoing transition,
-#                   'request_str':string representing transition to apply,
-#                   'counter': the seller or buyer's counter at the time of enqueueing}
+#                   'request_str':string representing transition to apply}
 class TransitionWorker(webapp2.RequestHandler):
     def post(self):
         #Get the member
@@ -17,7 +16,6 @@ class TransitionWorker(webapp2.RequestHandler):
         #Debug
         logging.info(props)
         logging.info(request_str)
-        logging.info(string.atoi(self.request.get('counter')))
         logging.info(props.is_request_str_valid[request_str])
         #End debug
 
