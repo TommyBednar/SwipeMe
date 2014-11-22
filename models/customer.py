@@ -71,7 +71,10 @@ class Customer(ndb.Model):
                 return datastore_seller_props
 
     def is_active(self):
-        return (self.props().status > 1)
+        if self.customer_type == Customer.SELLER:
+            return (self.props().status > 1)
+        else:
+            return false
 
     # Given a customer, generate a key
     # using the customer's phone number as a unique identifier
