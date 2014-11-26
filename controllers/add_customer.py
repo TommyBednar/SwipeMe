@@ -13,8 +13,8 @@ class AddCustomer(BaseHandler):
 
         phone = self.request.get('phone_number')
 
-        existing_customer_list = Customer.query(Customer.phone_number == phone).run()
-
+        #If there is at least one Customer with this number, we have an error condition
+        existing_customer_list = Customer.query(Customer.phone_number == phone).fetch(1)
         if len(existing_customer_list) != 0:
             self.redirect('/')
 
