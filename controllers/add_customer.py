@@ -13,6 +13,11 @@ class AddCustomer(BaseHandler):
 
         phone = self.request.get('phone_number')
 
+        existing_customer_list = Customer.query(Customer.phone_number == phone).run()
+
+        if len(existing_customer_list) != 0:
+            self.redirect('/')
+
         # Don't be a jerk and create an infinite loop of messages please
         if phone == swipeme_globals.PHONE_NUMBER or phone == '2162424434':
             self.redirect('/')
