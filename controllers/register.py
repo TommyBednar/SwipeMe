@@ -2,6 +2,18 @@ from base_handler import *
 
 class Register(BaseHandler):
     def get(self):
+        # Check if person is logged in to Google
+        user = users.get_current_user()
+
+        # If they are, see if there is a customer registered
+        # to them
+        if user:
+            customer = Customer.get_by_email(user.email())
+
+            # If so, they can't re-register
+            if customer:
+                self.redirect('/customer/dash')
+
         customer_type = int(self.request.get('customer_type'))
 
         if customer_type != 1 and customer_type != 2:
