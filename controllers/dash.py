@@ -14,7 +14,7 @@ class Dash(BaseHandler):
             template = JINJA_ENVIRONMENT.get_template("customer/dash.html")
             self.response.write(template.render( {
                     'name' : customer.name,
-                    'is_active' : 'Active' if customer.is_active() else 'Inactive',
+                    'is_active' : customer.is_active(),
                     'user_type' : string.capitalize(customer.customer_type_str()),
                     'phone_number' : customer.phone_number,
                     'verified' : verified,
