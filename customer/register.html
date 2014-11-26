@@ -74,8 +74,6 @@
 
     function process_form(t,event){
 
-      console.log("Made it into process_form()");
-
       //Create object with customer data to pass in post request
       form_data = {"customer_type": "{{customer_type}}"};
 
@@ -84,20 +82,12 @@
       phone_number = phone_number.replace(/\D/g,'');
       form_data.phone_number = phone_number;
 
+      //For seller, pass specified price.
+      //For buyer pass dummy value.
       {% if customer_type == 2 %}
-      console.log("Made it into 'swiper' portion");
-
-      var $price_element = $('#asking_price');
-      {
-        form_data.asking_price = $price_element.val();
-      }
-
-      //If we are processing a swipee, we can insert
-      // a dummy value for price.
+          form_data.asking_price = $('#asking_price').val();
       {% elif customer_type == 1 %}
-      {
-        form_data.asking_price = '0';
-      }
+          form_data.asking_price = '0';
       {% endif %}
 
       //Send form data to backend.
