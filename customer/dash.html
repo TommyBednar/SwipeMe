@@ -121,22 +121,6 @@
 	                    <div class="alert alert-info">The current minimum price is <strong>${{ minimum_price }}</strong>.</div>
 				</div>
 			</div>
-			<div class="panel panel-default">
-				<div class="panel-heading">
-					<h3 class="panel-title">Active Sellers</h3>
-				</div>
-				<div class="panel-body">
-					<ul>
-							{% for user in active_users %}
-							<li>
-								{% if user.google_account %}
-									{{ user.google_account.nickname() }}
-								{% endif %}
-							</li>
-							{% endfor %}
-					</ul>
-				</div><!--/.panel-body-->
-			</div><!--/.panel-->
 		{% endif %}
 
     	<ul class="list-group">
@@ -158,7 +142,26 @@
 			{% endif %}
     	</ul>
 	
-	
+		{% if active_user_count > 0 %}
+			<div class="panel panel-default">
+				<div class="panel-heading">
+					<h3 class="panel-title">Active Sellers</h3>
+				</div>
+				<div class="panel-body">
+					<ul>
+							{% for user in active_users %}
+							<li>
+								{% if user.google_account %}
+									{{ user.google_account.nickname() }}
+								{% endif %}
+							</li>
+							{% endfor %}
+					</ul>
+				</div><!--/.panel-body-->
+			</div><!--/.panel-->
+		{% endif %}
+
+	</div><!--/col-sm-9"-->
 
 {% endblock container %}
 
