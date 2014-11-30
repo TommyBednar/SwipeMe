@@ -138,7 +138,7 @@ class Buyer(ndb.Model):
         #seller came to swipe the buyer in.
         #If no complaint after 30 seconds, assume success
         self.status = Buyer.REPORTING
-        trans = [partial(self.get_parent().enqueue_trans,'success',30))]
+        trans = [partial(self.get_parent().enqueue_trans,'success',30)]
 
         return msg.check, trans
 
