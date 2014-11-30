@@ -50,6 +50,8 @@ class Customer(ndb.Model):
     #Key of other customer in transaction
     partner_key = ndb.KeyProperty(kind='Customer')
 
+    delayed_transitions = {}
+
     #Depending on customer_type, return buyer or seller properties
     def props(self):
         if self.customer_type == Customer.buyer:
@@ -173,7 +175,7 @@ class Customer(ndb.Model):
     # Allows transitions to be delayed relative to when the sms is actually sent.
     def send_message(self,body,trans=None):
         if body:
-            taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body, 'trans': trans})
+            taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body, 'trans': str(trans)})
 
     def request_clarification(self, valid_words, first_word):
         self.send_message("Sorry " + first_word + " is not a valid word.\n Try one of the following: "
@@ -198,6 +200,9 @@ class Customer(ndb.Model):
             logging.error('customer status: ' + self.get_status_str())
             logging.error('transitions: ' + str(props.transitions[props.status]))
             message, trans = None, None
+
+        if trans is not None:
+            Customer.delayed_transitions[str(trans)] = trans
 
         self.send_message(message, trans)
 

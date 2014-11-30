@@ -1,5 +1,6 @@
 from base_handler import *
 from google.appengine.api import memcache
+import pickle
 
 class SMSHandler(BaseHandler):
     def post(self):
@@ -28,8 +29,8 @@ class SMSHandler(BaseHandler):
             customer.process_SMS(body)
 
     @staticmethod
-    def send_message(to, body, trans=None):
-        taskqueue.add(url='/q/sms', params={'to': to, 'body': body, 'trans' : trans})
+    def send_message(to, body):
+        taskqueue.add(url='/q/sms', params={'to': to, 'body': body, 'trans' : None})
 
     @staticmethod
     def send_new_verification_message(customer):

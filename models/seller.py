@@ -70,7 +70,7 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        trans = [partial(self.get_parent().enqueue_trans,'timeout',1800)]
+        trans = partial(self.get_parent().enqueue_trans,'timeout',1800)
 
         return msg.enter, trans
 

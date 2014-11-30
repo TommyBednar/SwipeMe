@@ -17,8 +17,7 @@ class SMSWorker(BaseHandler):
             )
 
         logging.info(trans)
-        if trans is not None:
-            for t in trans:
-                t()
+        if trans != 'None':
+            Customer.delayed_transitions[trans]()
         send_message(to, body)
 

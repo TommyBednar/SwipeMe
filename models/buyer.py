@@ -85,7 +85,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
         self.set_partner_key(partner.key)
-        trans = [partial(self.get_parent().enqueue_trans,'decline', 30)]
+        trans = partial(self.get_parent().enqueue_trans,'decline', 30)
 
         price = partner.props().asking_price
         return msg.decide_before_price + str(price) + msg.decide_after_price, trans
@@ -111,7 +111,7 @@ class Buyer(ndb.Model):
         #to see if the seller came
         self.status = Buyer.WAITING
         self.get_partner().enqueue_trans('match',0)
-        trans = [partial(self.get_parent().enqueue_trans,'check',120)]
+        trans = partial(self.get_parent().enqueue_trans,'check',120)
 
         return msg.accept, trans
 
@@ -138,7 +138,7 @@ class Buyer(ndb.Model):
         #seller came to swipe the buyer in.
         #If no complaint after 30 seconds, assume success
         self.status = Buyer.REPORTING
-        trans = [partial(self.get_parent().enqueue_trans,'success',30)]
+        trans = partial(self.get_parent().enqueue_trans,'success',30)
 
         return msg.check, trans
 
