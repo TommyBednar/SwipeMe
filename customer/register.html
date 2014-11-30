@@ -1,14 +1,10 @@
 {% extends "base.html" %}
 {% set customer_type = customer_type|int %}
 
-{% block head_config %}
-    <link href="../css/main.css" rel="stylesheet">
-    <link href="../css/register.css" rel="stylesheet">
-    <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
-    <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/bootstrap-theme.min.css" rel="stylesheet">
-    <link href="../css/sticky-footer-navbar.css" rel="stylesheet">
-{% endblock head_config %}
+{% block bootstrap_styles %}
+  {{super()}}
+
+{% endblock bootstrap_styles %}
 
 {% block container %}
   <!-- Specify symbols to display for validation.-->
@@ -59,39 +55,42 @@
   </form>
 {% endblock container %}
 
+
 {% block javascript %}
-  {{ super() }}
-  <script type="text/javascript" src="//cdn.jsdelivr.net/jquery.bootstrapvalidator/0.5.3/js/bootstrapValidator.min.js"></script>
-  <script>
+    {{ super() }}
+    
+    <script type="text/javascript" src="//cdn.jsdelivr.net/jquery.bootstrapvalidator/0.5.3/js/bootstrapValidator.min.js"></script>
 
-    // initializes Bootstrap Validator plugin
-    $(document).ready(function() {
-      $('#register_form').bootstrapValidator()
-    });
+    <script>
 
-    function process_form(t,event){
-
-      //Create object with customer data to pass in post request
-      form_data = {"customer_type": "{{customer_type}}"};
-
-      //Store phone number as string of 10 digits
-      var phone_number = $('#customer_phone').val();
-      phone_number = phone_number.replace(/\D/g,'');
-      form_data.phone_number = phone_number;
-
-      //For seller, pass specified price.
-      //For buyer pass dummy value.
-      {% if customer_type == 2 %}
-          form_data.asking_price = $('#asking_price').val();
-      {% elif customer_type == 1 %}
-          form_data.asking_price = '0';
-      {% endif %}
-
-      //Send form data to backend.
-      //Redirect to home screen
-      $.post("add_customer",form_data, function(){
-        window.location = "dash";
+      // initializes Bootstrap Validator plugin
+      $(document).ready(function() {
+        $('#register_form').bootstrapValidator()
       });
-    }
-  </script>
+
+      function process_form(t,event){
+
+        //Create object with customer data to pass in post request
+        form_data = {"customer_type": "{{customer_type}}"};
+
+        //Store phone number as string of 10 digits
+        var phone_number = $('#customer_phone').val();
+        phone_number = phone_number.replace(/\D/g,'');
+        form_data.phone_number = phone_number;
+
+        //For seller, pass specified price.
+        //For buyer pass dummy value.
+        {% if customer_type == 2 %}
+            form_data.asking_price = $('#asking_price').val();
+        {% elif customer_type == 1 %}
+            form_data.asking_price = '0';
+        {% endif %}
+
+        //Send form data to backend.
+        //Redirect to home screen
+        $.post("add_customer",form_data, function(){
+          window.location = "dash";
+        });
+      }
+    </script>
 {% endblock javascript %}

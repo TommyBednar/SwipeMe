@@ -1,13 +1,9 @@
 {% extends "base.html" %}
 
-{% block head_config %}
-    <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/bootstrap-theme.min.css" rel="stylesheet">
-    <link href="../css/bootstrapValidator.min.css" rel="stylesheet">
-    <link href="../css/theme.css" rel="stylesheet">
-    <link href="../css/dash.css" rel="stylesheet">
-    <link href="../css/sticky-footer-navbar.css" rel="stylesheet">
-{% endblock head_config %}
+{% block bootstrap_styles %}
+	{{ super() }}
+	<link rel="stylesheet" href="//cdn.jsdelivr.net/jquery.bootstrapvalidator/0.5.3/css/bootstrapValidator.min.css"/>
+{% endblock bootstrap_styles %}
 
 {% block container %}
 	<div class="modal fade" id="edit_user_modal" tabindex="-1" role="dialog" aria-labelledby="edit_user_modal_title">
@@ -19,7 +15,7 @@
 							<span aria-hidden="true">&times;</span>
 							<span class="sr-only">Close</span>
 						</button>
-						<h4 class="modal-title" id="edit_user_modal_title">Edit user settings</h4>
+						<h4 class="modal-title" id="edit_user_modal_title">Edit Username</h4>
 					</div>
 					<div class="modal-body">
 						<div class="form-group">
@@ -100,6 +96,8 @@
 
 
     {% if active_user_count == 0 %}
+    <!-- If no sellers are available -->
+
     <div class="col-sm-6">
 	    <div class="alert alert-info">
 						Nobody is selling right now.
@@ -108,7 +106,11 @@
 						{% endif %}
 		</div>
 	</div>
+	
+	
 	{% else %}
+	<!-- If there are sellers available -->
+
 		<div class="col-sm-9">
 			<div class="container-fluid">
 				<div class="col-xs-6">
@@ -141,7 +143,6 @@
 
 {% block javascript %}
     {{ super() }}
-
     <script type="text/javascript" src="//cdn.jsdelivr.net/jquery.bootstrapvalidator/0.5.3/js/bootstrapValidator.min.js"></script>
     <script src="../js/dashboard.js"></script>
 
