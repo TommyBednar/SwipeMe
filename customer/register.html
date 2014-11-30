@@ -13,55 +13,58 @@
 
   <div class="row">
     <div class="col-md-6 col-md-offset-3">
-      <p class="lead">It's that easy.</p>
-    </div>
-  </div>
-  <!-- Specify symbols to display for validation.-->
-  <form role="form" action="javascript:process_form()" id="register_form"
-  data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
-  data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
-  data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
-  data-bv-onerror="on_form_invalid(this,event)"
-  data-bv-onsuccess="on_form_valid(this,event)">
-    <div class="form-group">
-      <label for="customer_phone">Cell Phone Number </label>
-      <input type="tel" id="customer_phone" name="phone"
-      placeholder="412-555-5555"
-      data-bv-phone
-      data-bv-phone-country="US"
-      data-bv-phone-message="Please enter a valid phone number."
-      data-bv-notempty="true"
-      data-bv-notempty-message="Please enter a valid phone number.">
-      <p class="help-block">
-        {% if customer_str == Buyer %}
-          You'll send <em>SwipeMe</em> a text to let buyers know you're in a dining hall.
-          You'll get a text when you're matched with a buyer.
-        {% elif customer_str == Seller %}
-          You'll send <em>SwipeMe</em> a text when you want to be swiped in to a dining hall.
-        {% endif %}
-      </p>
-    </div>
-    {% if customer_str == Seller %}
+      <p class="lead">Just One Form</p>
+      {% if customer_str == "Buyer" %}
+        <p>We're asking for your phone number so that you can text us when you want swiped in to Market.</p>
+      {% elif customer_str == "Seller" %}
+        <p>We're asking for your phone number so that you can text us when you're ready to swipe people in.</p>
+      {% endif %}
+      
+
+    <!-- Specify symbols to display for validation.-->
+    <form role="form" action="javascript:process_form()" id="register_form"
+    data-bv-feedbackicons-valid="glyphicon glyphicon-ok"
+    data-bv-feedbackicons-invalid="glyphicon glyphicon-remove"
+    data-bv-feedbackicons-validating="glyphicon glyphicon-refresh"
+    data-bv-onerror="on_form_invalid(this,event)"
+    data-bv-onsuccess="on_form_valid(this,event)">
       <div class="form-group">
-        <label for="asking_price">Asking Price</label>
-        <!--TODO: DRY by eliminating duplication of messages -->
-        <input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
-        data-bv-integer-message="Please enter a whole dollar value."
-        data-bv-lessthan
-        data-bv-lessthan-inclusive="false"
-        data-bv-lessthan-value="10"
-        data-bv-lessthan-message="Please enter a number between 1 and 9."
-        data-bv-greaterthan
-        data-bv-greaterthan-inclusive="false"
-        data-bv-greaterthan-value="0"
-        data-bv-greaterthan-message="Please enter a number between 1 and 9."
+        <label for="customer_phone">Cell Phone Number </label>
+        <input type="tel" id="customer_phone" name="phone"
+        placeholder="412-555-5555"
+        data-bv-phone
+        data-bv-phone-country="US"
+        data-bv-phone-message="Please enter a valid phone number."
         data-bv-notempty="true"
-        data-bv-notempty-message="Please enter a number between 1 and 9.">
-        <p class="help-block">This is how much you'll be paid to swipe someone in.</p>
+        data-bv-notempty-message="Please enter a valid phone number.">
+        <p class="help-block">
+          You should receive a confirmation text in less than a minute.
+        </p>
       </div>
-    {% endif %}
-      <button type="submit" class="btn btn-primary">Submit</button>
-  </form>
+
+      {% if customer_str == "Seller" %}
+        <br>
+        <p>Also, tell us how much you want to be paid for your swipes. Before you swipe people in, be sure they have enough cash.</p>
+        <div class="form-group">
+          <label for="asking_price">Asking Price</label>
+          <!--TODO: DRY by eliminating duplication of messages -->
+          <input type="number" name="number" name="lessThan" name="greaterThan" class="form-control" id="asking_price" placeholder="Whole dollars only, please."
+          data-bv-integer-message="Please enter a whole dollar value."
+          data-bv-lessthan
+          data-bv-lessthan-inclusive="false"
+          data-bv-lessthan-value="10"
+          data-bv-lessthan-message="Please enter a number between 1 and 9."
+          data-bv-greaterthan
+          data-bv-greaterthan-inclusive="false"
+          data-bv-greaterthan-value="0"
+          data-bv-greaterthan-message="Please enter a number between 1 and 9."
+          data-bv-notempty="true"
+          data-bv-notempty-message="Please enter a number between 1 and 9.">
+          <p class="help-block">Buyers will be matched with the seller in Market with the lowest price.</p>
+        </div>
+      {% endif %}
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
 {% endblock container %}
 
 
@@ -89,9 +92,9 @@
 
         //For seller, pass specified price.
         //For buyer pass dummy value.
-        {% if customer_str == Seller %}
+        {% if customer_str == "Seller" %}
             form_data.asking_price = $('#asking_price').val();
-        {% elif customer_str == Buyer %}
+        {% elif customer_str == "Buyer" %}
             form_data.asking_price = '0';
         {% endif %}
 
