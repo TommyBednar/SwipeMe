@@ -92,20 +92,21 @@
 		</div>
     </div>
 
-    {% if active_user_count == 0 %}
+
+
+    <div class="col-sm-9">
+        
+        {% if active_user_count == 0 %}
 	    <!-- If no sellers are available -->
 
-	    <div class="col-sm-9">
 		    <div class="alert alert-warning">
 							Nobody is selling right now.
 							{% if user_type == "Seller" %} If you check in, you'll have a monopoly! 
 							{% elif user_type == "Buyer" %} If you go to Market, we won't be able to find someone to swipe you in.
 							{% endif %}
 			</div>
-		</div>
-	{% endif %}
+		{% endif %}
 
-    <div class="col-sm-9">
     	<ul class="list-group">
     		
 	    	{% if user_type == "Seller" %} 
@@ -115,19 +116,19 @@
 	    									<li class="list-group-item"><strong>To check in to Market</strong> and receive swipe requests, text "market" to 216-242-4434.</li>
 	    									<li class="list-group-item"><strong>You'll get a text</strong> when you've been matched with someone who wants to buy a swipe from you.</li>
 	    									<li class="list-group-item"><strong>When you leave Market</strong> or want to stop receiving swipe requests, text "bye" to the same number.</li>
-			{% elif user_type == "Buyer" %} <p>When you're outside of Market, text "market" to 216-242-4434 and we'll try to find someone to swipe you in.</li>
-											<p>If we find a match, we'll let you know the seller's price before asking you to commit with another text.</p>
+			{% elif user_type == "Buyer" %} 
+											<li class="list-group-item active">
+	    										<h4 class="list-group-item-heading">How do I get swiped in?</h4>
+	    									</li>
+	    									<li class="list-group-item"><strong>When you're outside of Market,</strong> text "market" to 216-242-4434 and we'll try to find someone to swipe you in.</li>
+	    									<li class="list-group-item"><strong>If we find a match,</strong> we'll let you know the seller's price before asking you to commit with another text. Be sure you have the right amount of cash on hand!</li>
+	    									<li class="list-group-item"><strong>If you agree to the price</strong> text "yes" to the same number and the seller you were matched with will be alerted.</li>
 			{% endif %}
     	</ul>
-    </div>
-
-    
-	
 	
 	{% if active_user_count > 0 %}
 	<!-- If there are sellers available -->
 
-		<div class="col-sm-9">
 			<div class="container-fluid">
 				<div class="col-xs-6">
 					<div class="alert alert-success">There are <strong>{{ active_user_count }}</strong> sellers in market.</div>
@@ -152,7 +153,6 @@
 					</ul>
 				</div><!--/.panel-body-->
 			</div><!--/.panel-->
-		</div><!--/.col-sm-9-->
 	{% endif %}
 
 {% endblock container %}
