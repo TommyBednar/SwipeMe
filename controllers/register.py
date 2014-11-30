@@ -19,5 +19,11 @@ class Register(BaseHandler):
         if customer_type != 1 and customer_type != 2:
             self.redirect('/')
 
+        if customer_type is 1:
+            customer_str = 'Buyer'
+        else:
+            customer_str = 'Seller'
+
         template = JINJA_ENVIRONMENT.get_template("customer/register.html")
-        self.response.write(template.render( { 'customer_type': self.request.get('customer_type') } ))
+        self.response.write(template.render( { 'customer_type': customer_type,
+                                                'customer_str': customer_str } ))
