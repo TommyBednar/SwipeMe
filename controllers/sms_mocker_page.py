@@ -21,17 +21,17 @@ class SMSMockerPage(BaseHandler):
 
         if command == 'on':
             logging.info("Setting hook")
-            def hook(self,body):
+            def hook(self,body,trans=None):
                 if self.customer_type == self.buyer:
                     MockData.receive_SMS(msg=body,customer_type='buyer')
                 elif self.customer_type == self.seller:
                     MockData.receive_SMS(msg=body,customer_type='seller')
-            monkey = hook        
+            monkey = hook
 
         elif command == 'off':
-            def unhook(self,body):
+            def unhook(self,body,trans=None):
                 if body:
-                    taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
+                    taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body, 'trans': trans})
             monkey = unhook
 
         if monkey:

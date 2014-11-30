@@ -4,6 +4,7 @@ import msg
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
+from functools import partial
 
 class Seller(ndb.Model):
 
@@ -69,9 +70,9 @@ class Seller(ndb.Model):
         #Make the seller available and trigger a timer to
         #make the seller unavailable
         self.status = Seller.AVAILABLE
-        self.get_parent().enqueue_trans('timeout',1000)
+        trans = [partial(self.get_parent().enqueue_trans,'timeout',1800)]
 
-        return msg.enter
+        return msg.enter, trans
 
     @state_trans
     def on_depart(self):
@@ -87,7 +88,7 @@ class Seller(ndb.Model):
 
         self.is_request_str_valid['timeout'] = False
         self.status = Seller.UNAVAILABLE
-        return msg.depart
+        return msg.depart, None
 
     @state_trans
     def on_timeout(self):
@@ -96,7 +97,7 @@ class Seller(ndb.Model):
         #Make the seller opt back in to selling
         self.status = Seller.UNAVAILABLE
 
-        return msg.timeout
+        return msg.timeout, None
 
     @state_trans
     def on_lock(self, **kwargs):
@@ -108,7 +109,7 @@ class Seller(ndb.Model):
         self.status = Seller.LOCKED
         self.set_partner_key(kwargs['partner_key'])
 
-        return None
+        return None, None
 
     @state_trans
     def on_unlock(self):
@@ -119,7 +120,7 @@ class Seller(ndb.Model):
         self.status = Seller.AVAILABLE
         self.set_partner_key(None)
 
-        return None
+        return None, None
 
     @state_trans
     def on_match(self):
@@ -129,7 +130,7 @@ class Seller(ndb.Model):
         #Tell the seller to swipe the buyer in
         self.status = Seller.MATCHED
 
-        return msg.match
+        return msg.match, None
 
     @state_trans
     def on_noshow(self):
@@ -142,7 +143,7 @@ class Seller(ndb.Model):
 
         self.is_request_str_valid['timeout'] = False
 
-        return msg.noshow
+        return msg.noshow, None
 
     @state_trans
     def on_transact(self):
@@ -155,7 +156,7 @@ class Seller(ndb.Model):
 
         self.is_request_str_valid['timeout'] = False
 
-        return msg.transact
+        return msg.transact, None
 
     #For each status, mapping from requests to operations
     transitions = {

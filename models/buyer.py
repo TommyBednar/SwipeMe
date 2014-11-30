@@ -4,6 +4,7 @@ import msg
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
+from functools import partial
 
 class Buyer(ndb.Model):
 
@@ -72,7 +73,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.MATCHING
         self.find_match()
 
-        return msg.request
+        return msg.request, None
 
     @state_trans
     def on_match(self, **kwargs):
@@ -84,10 +85,10 @@ class Buyer(ndb.Model):
         self.status = Buyer.DECIDING
         partner = kwargs['partner_key'].get()
         self.set_partner_key(partner.key)
-        self.get_parent().enqueue_trans('decline', 30)
+        trans = [partial(self.get_parent().enqueue_trans,'decline', 30)]
 
         price = partner.props().asking_price
-        return msg.decide_before_price + str(price) + msg.decide_after_price
+        return msg.decide_before_price + str(price) + msg.decide_after_price, trans
 
     @state_trans
     def on_fail(self):
@@ -98,7 +99,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.INACTIVE
         self.set_partner_key(None)
 
-        return msg.fail
+        return msg.fail, None
 
     @state_trans
     def on_accept(self):
@@ -110,9 +111,9 @@ class Buyer(ndb.Model):
         #to see if the seller came
         self.status = Buyer.WAITING
         self.get_partner().enqueue_trans('match',0)
-        self.get_parent().enqueue_trans('check',120)
+        trans = [partial(self.get_parent().enqueue_trans,'check',120)]
 
-        return msg.accept
+        return msg.accept, trans
 
     @state_trans
     def on_decline(self):
@@ -126,7 +127,7 @@ class Buyer(ndb.Model):
         self.set_partner_key(None)
 
 
-        return msg.decline
+        return msg.decline, None
 
 
     @state_trans
@@ -137,9 +138,9 @@ class Buyer(ndb.Model):
         #seller came to swipe the buyer in.
         #If no complaint after 30 seconds, assume success
         self.status = Buyer.REPORTING
-        self.get_parent().enqueue_trans('success',30)
+        trans = [partial(self.get_parent().enqueue_trans,'success',30))]
 
-        return msg.check
+        return msg.check, trans
 
     @state_trans
     def on_complain(self):
@@ -153,7 +154,7 @@ class Buyer(ndb.Model):
         self.set_partner_key(None)
         self.find_match()
 
-        return msg.complain
+        return msg.complain, None
 
     @state_trans
     def on_success(self):
@@ -165,7 +166,7 @@ class Buyer(ndb.Model):
         self.get_partner().enqueue_trans('transact',0)
         self.set_partner_key(None)
 
-        return msg.success
+        return msg.success, None
 
     @state_trans
     def on_retry(self):
@@ -176,7 +177,7 @@ class Buyer(ndb.Model):
         self.status = Buyer.MATCHING
         self.find_match()
 
-        return msg.retry
+        return msg.retry, None
 
     #For each status, mapping from requests to operations
     transitions = {

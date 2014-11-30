@@ -28,8 +28,8 @@ class SMSHandler(BaseHandler):
             customer.process_SMS(body)
 
     @staticmethod
-    def send_message(to, body):
-        taskqueue.add(url='/q/sms', params={'to': to, 'body': body})
+    def send_message(to, body, trans=None):
+        taskqueue.add(url='/q/sms', params={'to': to, 'body': body, 'trans' : trans})
 
     @staticmethod
     def send_new_verification_message(customer):

@@ -169,9 +169,11 @@ class Customer(ndb.Model):
         params = {'key':self.key.urlsafe(),'request_str':request_str}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
-    def send_message(self,body):
+    # trans is a list of transitions to be added to the delay queue when the sms is sent.
+    # Allows transitions to be delayed relative to when the sms is actually sent.
+    def send_message(self,body,trans=None):
         if body:
-            taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body})
+            taskqueue.add(url='/q/sms', params={'to': self.phone_number, 'body': body, 'trans': trans})
 
     def request_clarification(self, valid_words, first_word):
         self.send_message("Sorry " + first_word + " is not a valid word.\n Try one of the following: "
@@ -187,16 +189,17 @@ class Customer(ndb.Model):
             logging.info('customer type: ' + self.customer_type_str())
             logging.info('customer status: ' + self.get_status_str())
             logging.info('transitions: ' + str(props.transitions[props.status]))
-            message = possible_transitions[request_str](props, **kwargs)
+            message, trans = possible_transitions[request_str](props, **kwargs)
+            logging.info('triggered transitions: ' + str(trans))
         else:
             logging.error('illegal transition')
             logging.error('request string: ' + request_str)
             logging.error('customer type: ' + self.customer_type_str())
             logging.error('customer status: ' + self.get_status_str())
             logging.error('transitions: ' + str(props.transitions[props.status]))
-            message = None
+            message, trans = None, None
 
-        self.send_message(message)
+        self.send_message(message, trans)
 
     def process_SMS(self,text):
         #Grab the first word of the SMS
