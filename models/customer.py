@@ -153,7 +153,7 @@ class Customer(ndb.Model):
         self.customer_type = Customer.buyer
 
         buyer_props = Buyer()
-        seller_props.counter = 0
+        buyer_props.counter = 0
         buyer_props.status = Buyer.INACTIVE
         buyer_props.parent_key = self.key
         self.buyer_props = buyer_props.put()
