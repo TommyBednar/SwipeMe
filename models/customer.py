@@ -140,6 +140,7 @@ class Customer(ndb.Model):
         self.customer_type = Customer.seller
 
         seller_props = Seller()
+        seller_props.counter = 0
         seller_props.asking_price = price
         seller_props.status = Seller.UNAVAILABLE
         seller_props.parent_key = self.key
@@ -152,6 +153,7 @@ class Customer(ndb.Model):
         self.customer_type = Customer.buyer
 
         buyer_props = Buyer()
+        seller_props.counter = 0
         buyer_props.status = Buyer.INACTIVE
         buyer_props.parent_key = self.key
         self.buyer_props = buyer_props.put()
@@ -163,10 +165,9 @@ class Customer(ndb.Model):
 
     def enqueue_trans(self,request_str,delay):
         props = self.props()
-        props.is_request_str_valid[request_str] = True
         props_key = props.put()
         memcache.set(str(props_key), props, 10)
-        params = {'key':self.key.urlsafe(),'request_str':request_str}
+        params = {'key':self.key.urlsafe(),'request_str':request_str,'counter':str(self.props().counter)}
         taskqueue.add(queue_name='delay-queue', url="/q/trans", params=params, countdown=delay)
 
     def send_message(self,body):
@@ -187,6 +188,7 @@ class Customer(ndb.Model):
             logging.info('customer type: ' + self.customer_type_str())
             logging.info('customer status: ' + self.get_status_str())
             logging.info('transitions: ' + str(props.transitions[props.status]))
+            logging.info('current counter: ' + str(props.counter))
             message = possible_transitions[request_str](props, **kwargs)
         else:
             logging.error('illegal transition')
@@ -194,6 +196,7 @@ class Customer(ndb.Model):
             logging.error('customer type: ' + self.customer_type_str())
             logging.error('customer status: ' + self.get_status_str())
             logging.error('transitions: ' + str(props.transitions[props.status]))
+            logging.error('current counter: ' + str(props.counter))
             message = None
 
         self.send_message(message)

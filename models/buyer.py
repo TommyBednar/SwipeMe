@@ -20,17 +20,11 @@ class Buyer(ndb.Model):
         REPORTING: 'Reporting',
     }
 
-    is_request_str_valid = {
-        'accept': True,
-        'check': True,
-        'complain': True,
-        'decline': True,
-        'fail': True,
-        'match': True,
-        'request': True,
-        'retry': True,
-        'success': True,
-    }
+    #Delayed requests will only execute if the counter at the time of execution
+    #is the same as the counter at the time the request was created.
+    counter = ndb.IntegerProperty()
+    #Arbitrary maximum value for timeout counter
+    max_counter = 1000
 
     #The key of the customer that holds this Seller
     parent_key = ndb.KeyProperty(kind='Customer')
@@ -52,6 +46,8 @@ class Buyer(ndb.Model):
     #In every state transition method,
     def state_trans(func):
         def decorated(self, *args, **kwargs):
+            #Increment the counter,
+            self.counter = (self.counter + 1) % Buyer.max_counter
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
