@@ -46,6 +46,8 @@ class Seller(ndb.Model):
         def decorated(self, *args, **kwargs):
             #Increment the counter,
             self.counter = (self.counter + 1) % Seller.max_counter
+            key = self.put()
+            memcache.set(str(key), self, 10)
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
