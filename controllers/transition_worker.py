@@ -14,19 +14,14 @@ class TransitionWorker(webapp2.RequestHandler):
         #   is still in the same state as when it was issued
         props = cust.props()
 
-        if request_str not in props.transitions[props.status]:
-            logging.warning('requested transition not possible')
-            logging.warning('request string: ' + request_str)
-            logging.warning('customer type: ' + cust.customer_type_str())
-            logging.warning('customer status: ' + cust.get_status_str())
-            logging.warning('transitions: ' + str(props.transitions[props.status]))
-        elif not props.is_request_str_valid[request_str]:
+        if props.counter == string.atoi(self.request.get('counter')):
+            cust.execute_request(request_str)
+        else:
             logging.info('stale transition')
             logging.info('request string: ' + request_str)
             logging.info('customer type: ' + cust.customer_type_str())
             logging.info('customer status: ' + cust.get_status_str())
             logging.info('transitions: ' + str(props.transitions[props.status]))
-        else:
-            cust.execute_request(request_str)
-
+            logging.info('current counter: ' + str(props.counter))
+            logging.info('transition counter: ' + self.request.get('counter'))
 

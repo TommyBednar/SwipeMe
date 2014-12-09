@@ -17,16 +17,11 @@ class Seller(ndb.Model):
         MATCHED:'Matched',
     }
 
-    is_request_str_valid = {
-        'depart': True,
-        'enter': True,
-        'lock': True,
-        'match': True,
-        'noshow': True,
-        'timeout': True,
-        'transact': True,
-        'unlock': True,
-    }
+    #Delayed requests will only execute if the counter at the time of execution
+    #is the same as the counter at the time the request was created.
+    counter = ndb.IntegerProperty()
+    #Arbitrary maximum value for timeout counter
+    max_counter = 1000
 
     # The Seller's status in the matching process
     status = ndb.IntegerProperty()
@@ -49,6 +44,10 @@ class Seller(ndb.Model):
     #In every state transition method,
     def state_trans(func):
         def decorated(self, *args, **kwargs):
+            #Increment the counter,
+            self.counter = (self.counter + 1) % Seller.max_counter
+            key = self.put()
+            memcache.set(str(key), self, 10)
             #Pass along extra parameters in addition to self
             message = func(self, *args, **kwargs)
             #Store the properties
@@ -85,7 +84,6 @@ class Seller(ndb.Model):
             self.get_partner().enqueue_trans('retry', 0)
             self.set_partner_key(None)
 
-        self.is_request_str_valid['timeout'] = False
         self.status = Seller.UNAVAILABLE
         return msg.depart
 
@@ -140,7 +138,6 @@ class Seller(ndb.Model):
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
 
-        self.is_request_str_valid['timeout'] = False
 
         return msg.noshow
 
@@ -153,7 +150,6 @@ class Seller(ndb.Model):
         self.status = Seller.UNAVAILABLE
         self.set_partner_key(None)
 
-        self.is_request_str_valid['timeout'] = False
 
         return msg.transact
 
