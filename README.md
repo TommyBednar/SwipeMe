@@ -1,4 +1,4 @@
-_We are deprecateing SwipeMe v1. A port to Rails is in the works. More details to come._
+_We are deprecating SwipeMe v1. A port to Rails is in the works. More details to come._
 
 SwipeMe
 =======
